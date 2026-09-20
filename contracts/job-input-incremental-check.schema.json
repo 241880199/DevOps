@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/job-input-incremental-check.schema.json",
+  "title": "IncrementalCheckJobInput",
+  "description": "INCREMENTAL_CHECK 任务的专有输入。历史图必须能追溯到 base commit：基线不带版本或配置，检测结果就无法判断是否可比，因此 baseline 的三项内容全部必填。",
+  "type": "object",
+  "required": ["base_commit", "repository", "baseline", "environment", "build"],
+  "additionalProperties": false,
+  "properties": {
+    "base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "基线的完整 commit SHA（上一状态）。"
+    },
+    "repository": {
+      "type": "object",
+      "description": "本次待检测的仓库与版本。",
+      "required": ["url", "commit"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "本次提交的完整 SHA，应晚于 base_commit。"
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "description": "上一次检测留下的实际依赖图及其身份。三项缺一不可——缺了提交或配置，就无法判断这份基线是否适用于当前比较。",
+      "required": ["actual_graph_uri", "commit", "configuration_id"],
+      "additionalProperties": false,
+      "properties": {
+        "actual_graph_uri": {
+          "type": "string",
+          "pattern": "^artifact://[^/]+/[^/]+/.+$",
+          "description": "基线实际依赖图的产物地址。"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "基线图所依据的提交，应等于 base_commit。两者不一致时任务应被拒绝。"
+        },
+        "configuration_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "基线图所依据的构建配置，应与本次环境一致。不一致时结果不可比。"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["image_ref", "configuration_id"],
+      "additionalProperties": false,
+      "properties": {
+        "image_ref": { "type": "string", "minLength": 1 },
+        "configuration_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "本次检测的构建配置。应与 baseline.configuration_id 一致。"
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "required": ["incremental_command", "project_root"],
+      "additionalProperties": false,
+      "properties": {
+        "incremental_command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "增量构建命令。",
+          "examples": ["make"]
+        },
+        "clean_command": {
+          "type": "string",
+          "description": "首次检测无历史图时使用的完整构建命令。"
+        },
+        "project_root": {
+          "type": "string",
+          "examples": ["/work"]
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["timeout_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "timeout_seconds": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

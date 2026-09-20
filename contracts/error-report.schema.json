@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/error-report.schema.json",
+  "title": "ErrorReport",
+  "description": "依赖问题报告。检测服务产出，修复服务消费；作为 artifact 以 URI 引用交接。一条 finding 表示一处依赖声明问题，必须同时给出位置与证据——只有 (target, dependency) 不足以让人复核。",
+  "type": "object",
+  "required": ["schema_version", "repository", "produced_by", "generated_at", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "repository": {
+      "type": "object",
+      "required": ["url", "commit"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "报告所依据的源码版本。修复服务必须据此校验报告是否属于当前提交。"
+        }
+      }
+    },
+    "configuration_id": {
+      "type": "string",
+      "description": "报告所依据的构建配置标识。同一提交在不同配置下依赖关系不同，缺失该字段则报告不可跨配置复用。"
+    },
+    "produced_by": {
+      "type": "object",
+      "required": ["detector", "job_id"],
+      "additionalProperties": false,
+      "properties": {
+        "detector": {
+          "type": "string",
+          "minLength": 1,
+          "description": "产出报告的检测器标识。",
+          "examples": ["BuildChecker", "EChecker", "INSTRUCTOR_ORACLE"]
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^job-[A-Za-z0-9_-]+$"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["FULL", "INCREMENTAL", "MANUAL"],
+          "description": "检测模式。MANUAL 表示人工构造的参考报告。"
+        }
+      }
+    },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "summary": {
+      "type": "object",
+      "description": "可选的汇总计数，便于消费方在不解全部 findings 的情况下掌握规模。",
+      "additionalProperties": false,
+      "properties": {
+        "missing": { "type": "integer", "minimum": 0 },
+        "redundant": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "发现列表。空数组合法——表示检查完成且未发现问题，任务终态仍为 SUCCEEDED。",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "description": "一处依赖声明问题。",
+      "required": ["type", "target", "dependency", "commit", "detector", "provenance", "location", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["MISSING", "REDUNDANT"],
+          "description": "MISSING：构建实际需要但脚本未声明。REDUNDANT：脚本声明了但本配置下未使用。"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "description": "构建目标。",
+          "examples": ["main.o"]
+        },
+        "dependency": {
+          "type": "string",
+          "minLength": 1,
+          "description": "依赖项。",
+          "examples": ["config.h"]
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "该发现成立时所处的完整提交 SHA。"
+        },
+        "detector": {
+          "type": "string",
+          "minLength": 1,
+          "description": "产出该发现的检测器标识。",
+          "examples": ["BuildChecker", "EChecker", "INSTRUCTOR_ORACLE"]
+        },
+        "provenance": {
+          "type": "string",
+          "enum": ["TOOL", "INSTRUCTOR_ORACLE", "MANUAL"],
+          "description": "来源类别。TOOL 为工具检出；INSTRUCTOR_ORACLE 与 MANUAL 为人工标注。人工标注的发现不计入工具准确率统计，消费方据此过滤，无需解析 detector 字符串。"
+        },
+        "location": {
+          "type": "object",
+          "description": "声明所在位置。用于人工复核：光有 (target, dependency) 无法定位到具体是哪一行声明出了问题。",
+          "required": ["file"],
+          "additionalProperties": false,
+          "properties": {
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "description": "声明所在文件，相对项目根目录。",
+              "examples": ["Makefile"]
+            },
+            "line": { "type": "integer", "minimum": 1 },
+            "detail": {
+              "type": "string",
+              "description": "补充说明，例如该声明所属的宏名或规则形态。",
+              "examples": ["BINS 宏展开后的目标"]
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "description": "判定依据。缺失证据的发现无法被复核，也无法在争议时回溯。",
+          "required": ["kind", "detail"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["DECLARATION", "FILE_ACCESS", "PROCESS", "BUILD_OUTPUT"],
+              "description": "DECLARATION 声明缺失/多余；FILE_ACCESS 文件读取记录；PROCESS 进程与系统调用记录；BUILD_OUTPUT 构建输出证据。"
+            },
+            "detail": {
+              "type": "string",
+              "minLength": 1,
+              "examples": ["main.o 构建期间读取了 config.h，但 Makefile 第 7 行未声明"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/job-input-repair.schema.json",
+  "title": "RepairJobInput",
+  "description": "REPAIR 任务的专有输入。挂在统一任务模型的 input 字段下。修复只针对缺失依赖，因此报告引用必须限定为 MISSING。",
+  "type": "object",
+  "required": ["repository", "report", "environment", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "repository": {
+      "type": "object",
+      "description": "待修复的仓库与版本。必须与报告所依据的版本一致，否则报告失效。",
+      "required": ["url", "commit"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "完整 commit SHA。修复产出的补丁必须能干净地应用在这个版本上。"
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "description": "待修复问题的报告引用。",
+      "required": ["artifact_id", "artifact_uri", "finding_type"],
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "artifact_uri": {
+          "type": "string",
+          "pattern": "^artifact://[^/]+/[^/]+/.+$",
+          "description": "报告地址。读取方式须双方事先约定（见 artifact.schema.json）。"
+        },
+        "finding_type": {
+          "const": "MISSING",
+          "description": "本次修复的发现类型，固定为 MISSING。修复只针对缺失依赖，请求修复冗余依赖会被拒绝。"
+        }
+      }
+    },
+    "makefile_path": {
+      "type": "string",
+      "description": "构建脚本相对项目根目录的路径。用于识别声明风格并生成同风格补丁。",
+      "default": "Makefile",
+      "examples": ["Makefile", "Makefile.in"]
+    },
+    "environment": {
+      "type": "object",
+      "description": "修复所依据的运行环境。补丁产出后须在同一环境中复构建与复检，环境不一致则结论不可比。",
+      "required": ["image_ref", "build_command", "verify_command"],
+      "additionalProperties": false,
+      "properties": {
+        "image_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "可运行镜像引用，通常来自环境生成服务的输出。"
+        },
+        "build_command": {
+          "type": "string",
+          "minLength": 1,
+          "examples": ["make"]
+        },
+        "verify_command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "验证修改是否生效的命令。",
+          "examples": ["./hello"]
+        },
+        "recheck_command": {
+          "type": "string",
+          "description": "复检依赖问题的命令，通常为重新调用检测服务。缺失时只做构建与功能验证。"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "description": "执行预算。超限写入 EXEC_4002。",
+      "required": ["max_iterations", "timeout_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "max_iterations": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "timeout_seconds": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

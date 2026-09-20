@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "job_id": "job-repair01",
+  "trace_id": "trace-repair-0001",
+  "job_type": "REPAIR",
+  "status": "SUCCEEDED",
+  "execution": {
+    "created_at": "2026-09-20T11:00:00Z",
+    "started_at": "2026-09-20T11:00:02Z",
+    "finished_at": "2026-09-20T11:01:47Z",
+    "attempt": 1
+  },
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+    },
+    "report": {
+      "artifact_id": "md-report-001",
+      "artifact_uri": "artifact://detect/job-full01/error-report.json",
+      "finding_type": "MISSING"
+    },
+    "makefile_path": "Makefile",
+    "environment": {
+      "image_ref": "draft-fixture-ok:1.0",
+      "build_command": "make",
+      "verify_command": "./hello",
+      "recheck_command": "make clean && make"
+    },
+    "limits": {
+      "max_iterations": 3,
+      "timeout_seconds": 300
+    }
+  },
+  "output": {
+    "patch_artifact_id": "patch-0001",
+    "resolved_commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+    "fixed": [
+      {
+        "target": "main.o",
+        "dependency": "config.h",
+        "style": "TARGET",
+        "strategy": "在该目标的依赖列表中直接追加依赖项"
+      },
+      {
+        "target": "main.o",
+        "dependency": "feature.h",
+        "style": "TARGET",
+        "strategy": "在该目标的依赖列表中直接追加依赖项"
+      }
+    ],
+    "rejected": [
+      {
+        "target": "main.o",
+        "dependency": "util.h",
+        "reason": "改用通配符宏后引入了本配置下未使用的依赖，会新增冗余声明"
+      }
+    ],
+    "declaration_style_note": "Makefile 使用原子依赖列表（main.o 的依赖逐项列出，未经宏组织），因此补丁采用直接追加方式，不引入新的宏或隐式规则。项目内未发现隐式规则声明。",
+    "verification": {
+      "build_ok": true,
+      "test_ok": true,
+      "recheck_ok": true,
+      "recheck_stdout": "make clean && make: 未报告依赖问题\n"
+    },
+    "verification_log_artifact_id": "verifylog-0001"
+  }
+}

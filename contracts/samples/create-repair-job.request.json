@@ -1,0 +1,26 @@
+{
+  "job_type": "REPAIR",
+  "trace_id": "trace-repair-0001",
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+    },
+    "report": {
+      "artifact_id": "md-report-001",
+      "artifact_uri": "artifact://detect/job-full01/error-report.json",
+      "finding_type": "MISSING"
+    },
+    "makefile_path": "Makefile",
+    "environment": {
+      "image_ref": "draft-fixture-ok:1.0",
+      "build_command": "make",
+      "verify_command": "./hello",
+      "recheck_command": "make clean && make"
+    },
+    "limits": {
+      "max_iterations": 3,
+      "timeout_seconds": 300
+    }
+  }
+}

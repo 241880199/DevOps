@@ -1,0 +1,21 @@
+{
+  "job_type": "FULL_CHECK",
+  "trace_id": "trace-full-0001",
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+    },
+    "environment": {
+      "image_ref": "draft-fixture-ok:1.0",
+      "configuration_id": "cc-MODE0"
+    },
+    "build": {
+      "clean_command": "make clean && make",
+      "project_root": "/work"
+    },
+    "limits": {
+      "timeout_seconds": 900
+    }
+  }
+}

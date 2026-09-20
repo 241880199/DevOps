@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""接口契约校验：DRAFT 任务。
+"""接口契约校验。
 
 把接口约定的最小检查固化成可重复执行的命令：
 
-  01  有效样例通过
-  02  job_type 改成 ABC，应被拒绝
-  03  删除 DRAFT 的必填输入，应被拒绝
+  01  四类任务的请求与响应样例全部通过
+  02  未知 job_type 被拒绝；客户端不得自定 job_id
+  03  各任务类型的必填输入缺失被拒绝
   04  系统错误与正常结果不得混淆（检出依赖问题 != 执行失败）
-  05  跨 schema 枚举一致性，防止契约漂移
+  05  跨 schema 的枚举与覆盖一致性，防止契约漂移
   06  样例中记录的产物摘要与实际文件一致
   07  样例用到的错误码均已在 error-codes.md 中归档
-  08  成功任务的输出不变式（SUCCEEDED 蕴含各项判据为真）
+  08  成功任务的输出不变式
+  09  修复任务只消费缺失依赖报告
 
 用法（在仓库根目录执行）：
     python scripts/validate.py
@@ -39,6 +40,21 @@ except ImportError:  # pragma: no cover
         "    python -m pip install jsonschema"
     )
 
+# job_type -> 专有输入 schema。与 mock_server.py 保持一致；
+# 检查 05 会确认四类任务都有对应的输入契约，防止新增类型时漏配。
+INPUT_SCHEMA = {
+    "DRAFT": "job-input-draft",
+    "FULL_CHECK": "job-input-full-check",
+    "INCREMENTAL_CHECK": "job-input-incremental-check",
+    "REPAIR": "job-input-repair",
+}
+
+# job_type -> 专有输出 schema（有定义的类型）
+OUTPUT_SCHEMA = {
+    "DRAFT": "job-output-draft",
+    "REPAIR": "job-output-repair",
+}
+
 
 # ---------------------------------------------------------------- 基础设施
 
@@ -48,10 +64,10 @@ def load_json(path: Path):
 
 def load_schemas() -> dict:
     suffix = ".schema.json"
-    schemas = {}
-    for path in sorted(CONTRACTS.glob(f"*{suffix}")):
-        schemas[path.name[: -len(suffix)]] = load_json(path)
-    return schemas
+    return {
+        p.name[: -len(suffix)]: load_json(p)
+        for p in sorted(CONTRACTS.glob(f"*{suffix}"))
+    }
 
 
 class Report:
@@ -66,9 +82,8 @@ class Report:
         else:
             self.failed.append((name, detail))
             print(f"  [FAIL] {name}")
-            if detail:
-                for line in detail.splitlines():
-                    print(f"         {line}")
+            for line in detail.splitlines():
+                print(f"         {line}")
 
     def summary(self) -> int:
         total = self.passed + len(self.failed)
@@ -86,7 +101,8 @@ class Report:
 
 
 def errors_of(schema: dict, instance) -> list[str]:
-    """返回人类可读的错误列表，空列表表示通过。"""
+    if not schema:
+        return ["契约缺失：没有可用的 schema"]
     validator = Draft202012Validator(schema)
     out = []
     for err in sorted(validator.iter_errors(instance), key=lambda e: list(e.path)):
@@ -102,40 +118,56 @@ def sample(name: str):
     return load_json(path)
 
 
+def create_samples() -> list[Path]:
+    return sorted(SAMPLES.glob("create-*.request.json"))
+
+
 # ------------------------------------------------------------------ 检查项
 
-def check_01_valid_samples_pass(schemas: dict, rep: Report) -> None:
-    print("\n检查 01：有效样例通过")
+def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
+    """四类任务的请求与响应样例都必须通过各自契约。"""
+    print("\n检查 01：四类任务的请求与响应样例通过")
 
-    req = sample("create-dockerfile-job.request.json")
-    errs = errors_of(schemas["job-create-request"], req)
-    rep.check("创建请求符合 job-create-request.schema.json", not errs, "\n".join(errs))
+    seen_types = set()
+    for path in create_samples():
+        req = load_json(path)
+        errs = errors_of(schemas["job-create-request"], req)
+        rep.check(f"{path.name} 符合创建请求契约", not errs, "\n".join(errs))
+        if errs:
+            continue
 
-    errs = errors_of(schemas["job-input-draft"], req["input"])
-    rep.check("DRAFT 输入符合 job-input-draft.schema.json", not errs, "\n".join(errs))
+        job_type = req["job_type"]
+        seen_types.add(job_type)
+        errs = errors_of(schemas[INPUT_SCHEMA[job_type]], req["input"])
+        rep.check(f"{path.name} 的 {job_type} 输入符合契约", not errs, "\n".join(errs))
 
-    ok_job = sample("job.succeeded.json")
-    errs = errors_of(schemas["task"], ok_job)
-    rep.check("成功任务符合 task.schema.json", not errs, "\n".join(errs))
+    expected = set(INPUT_SCHEMA)
+    rep.check(
+        f"四类任务均提供创建请求样例（已覆盖 {len(seen_types)}/4）",
+        seen_types == expected,
+        f"缺少：{sorted(expected - seen_types)}",
+    )
 
-    errs = errors_of(schemas["job-output-draft"], ok_job["output"])
-    rep.check("DRAFT 输出符合 job-output-draft.schema.json", not errs, "\n".join(errs))
+    # 响应样例：按 job_type 校验专有输出
+    for name in ("job.succeeded.json", "job.repair.succeeded.json"):
+        job = sample(name)
+        errs = errors_of(schemas["task"], job)
+        rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
+        out_schema = OUTPUT_SCHEMA.get(job.get("job_type"))
+        if out_schema:
+            errs = errors_of(schemas[out_schema], job.get("output", {}))
+            rep.check(f"{name} 的 {job['job_type']} 输出符合契约", not errs, "\n".join(errs))
 
-    bad_job = sample("job.failed.env3002.json")
-    errs = errors_of(schemas["task"], bad_job)
-    rep.check("失败任务符合 task.schema.json", not errs, "\n".join(errs))
+    for name in ("job.running.json", "job.failed.env3002.json",
+                 "job.timed_out.exec4002.json"):
+        errs = errors_of(schemas["task"], sample(name))
+        rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
 
-    running = sample("job.running.json")
-    errs = errors_of(schemas["task"], running)
-    rep.check("执行中任务符合 task.schema.json", not errs, "\n".join(errs))
-
-    timeout = sample("job.timed_out.exec4002.json")
-    errs = errors_of(schemas["task"], timeout)
-    rep.check("超时任务符合 task.schema.json", not errs, "\n".join(errs))
-
-    art = sample("artifact.json")
-    errs = errors_of(schemas["artifact"], art)
+    errs = errors_of(schemas["artifact"], sample("artifact.json"))
     rep.check("产物记录符合 artifact.schema.json", not errs, "\n".join(errs))
+
+    errs = errors_of(schemas["error-report"], sample("error-report.json"))
+    rep.check("依赖问题报告符合 error-report.schema.json", not errs, "\n".join(errs))
 
     resp = sample("create-job.response.202.json")
     rep.check(
@@ -148,145 +180,163 @@ def check_01_valid_samples_pass(schemas: dict, rep: Report) -> None:
 def check_02_unknown_job_type_rejected(schemas: dict, rep: Report) -> None:
     print("\n检查 02：未知 job_type 必须被拒绝")
 
+    base = load_json(create_samples()[0])
     for bad in ("ABC", "draft", ""):
-        req = copy.deepcopy(sample("create-dockerfile-job.request.json"))
+        req = copy.deepcopy(base)
         req["job_type"] = bad
-        errs = errors_of(schemas["job-create-request"], req)
         rep.check(
             f"job_type={bad!r} 被拒绝",
-            bool(errs),
+            bool(errors_of(schemas["job-create-request"], req)),
             "未被拒绝：schema 接受了非法 job_type",
         )
 
-    # job_id 必须由服务端产生，客户端携带即为非法
-    req = copy.deepcopy(sample("create-dockerfile-job.request.json"))
+    req = copy.deepcopy(base)
     req["job_id"] = "job-client-supplied"
-    errs = errors_of(schemas["job-create-request"], req)
-    rep.check("请求携带 job_id 被拒绝", bool(errs), "未被拒绝：客户端不应决定 job_id")
+    rep.check(
+        "请求携带 job_id 被拒绝",
+        bool(errors_of(schemas["job-create-request"], req)),
+        "未被拒绝：客户端不应决定 job_id",
+    )
 
 
-def check_03_missing_required_input_rejected(schemas: dict, rep: Report) -> None:
-    print("\n检查 03：DRAFT 必填输入缺失必须被拒绝")
+def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
+    print("\n检查 03：各任务类型的必填输入缺失必须被拒绝")
 
     cases = [
-        ("删除 build.command", lambda i: i["build"].pop("command")),
-        ("删除 build.verify_command", lambda i: i["build"].pop("verify_command")),
-        ("删除 build 整块", lambda i: i.pop("build")),
-        ("删除 limits（超时与轮数无约束）", lambda i: i.pop("limits")),
-        ("删除 limits.timeout_seconds", lambda i: i["limits"].pop("timeout_seconds")),
-        ("删除 repository", lambda i: i.pop("repository")),
+        ("create-dockerfile-job.request.json", "DRAFT",
+         [("删除 build.command", lambda i: i["build"].pop("command")),
+          ("删除 build.verify_command", lambda i: i["build"].pop("verify_command")),
+          ("删除 build 整块", lambda i: i.pop("build")),
+          ("删除 limits（超时与轮数无约束）", lambda i: i.pop("limits")),
+          ("删除 limits.timeout_seconds", lambda i: i["limits"].pop("timeout_seconds")),
+          ("删除 repository", lambda i: i.pop("repository")),
+          ("context_documents 超过 2 个",
+           lambda i: i.__setitem__("context_documents", ["a.md", "b.md", "c.md"]))]),
+
+        ("create-repair-job.request.json", "REPAIR",
+         [("删除 report（修复无目标）", lambda i: i.pop("report")),
+          ("删除 report.finding_type", lambda i: i["report"].pop("finding_type")),
+          ("删除 environment（无从复构建）", lambda i: i.pop("environment")),
+          ("删除 environment.recheck_command 之外的必填项 build_command",
+           lambda i: i["environment"].pop("build_command")),
+          ("删除 repository", lambda i: i.pop("repository"))]),
+
+        ("create-full-check-job.request.json", "FULL_CHECK",
+         [("删除 environment.configuration_id（基线身份不全）",
+           lambda i: i["environment"].pop("configuration_id")),
+          ("删除 build.clean_command", lambda i: i["build"].pop("clean_command")),
+          ("删除 build.project_root", lambda i: i["build"].pop("project_root")),
+          ("删除 repository.commit", lambda i: i["repository"].pop("commit"))]),
+
+        ("create-incremental-check-job.request.json", "INCREMENTAL_CHECK",
+         [("删除 baseline（无法判定可比性）", lambda i: i.pop("baseline")),
+          ("删除 baseline.actual_graph_uri", lambda i: i["baseline"].pop("actual_graph_uri")),
+          ("删除 baseline.commit", lambda i: i["baseline"].pop("commit")),
+          ("删除 baseline.configuration_id",
+           lambda i: i["baseline"].pop("configuration_id")),
+          ("删除 base_commit", lambda i: i.pop("base_commit"))]),
     ]
-    for label, mutate in cases:
-        req = copy.deepcopy(sample("create-dockerfile-job.request.json"))
-        mutate(req["input"])
-        errs = errors_of(schemas["job-input-draft"], req["input"])
-        rep.check(f"{label} 被拒绝", bool(errs), "未被拒绝：必填字段缺失却通过了校验")
 
-    # 上下文文档超过 2 个应被拒绝（对齐 DRAFT 论文的预处理约束）
-    req = copy.deepcopy(sample("create-dockerfile-job.request.json"))
-    req["input"]["context_documents"] = ["a.md", "b.md", "c.md"]
-    errs = errors_of(schemas["job-input-draft"], req["input"])
-    rep.check("context_documents 超过 2 个被拒绝", bool(errs), "未被拒绝：超出论文约定上限")
-
-    # 删除「增量任务的 baseline」属于依赖检测服务的契约，
-    # 若其样例已入库，这里会一并校验。
-    inc = SAMPLES / "create-incremental-check-job.request.json"
-    if inc.exists():
-        req = load_json(inc)
-        req["input"].pop("baseline", None)
-        errs = errors_of(schemas.get("job-input-incremental", {}), req["input"])
-        rep.check("删除增量任务的 baseline 被拒绝", bool(errs), "未被拒绝")
-    else:
-        print("  [SKIP] 增量任务样例未入库（属依赖检测服务），跳过该反例")
+    for name, job_type, mutators in cases:
+        payload = load_json(SAMPLES / name)
+        for label, mutate in mutators:
+            req = copy.deepcopy(payload)
+            mutate(req["input"])
+            errs = errors_of(schemas[INPUT_SCHEMA[job_type]], req["input"])
+            rep.check(f"[{job_type}] {label} 被拒绝", bool(errs),
+                      "未被拒绝：必填字段缺失却通过了校验")
 
 
 def check_04_error_semantics(schemas: dict, rep: Report) -> None:
     print("\n检查 04：系统错误与正常结果不得混淆")
 
-    # SUCCEEDED 必须有 output
     job = copy.deepcopy(sample("job.succeeded.json"))
     job.pop("output")
-    errs = errors_of(schemas["task"], job)
-    rep.check("SUCCEEDED 缺少 output 被拒绝", bool(errs), "未被拒绝：成功任务必须交付结果")
+    rep.check("SUCCEEDED 缺少 output 被拒绝",
+              bool(errors_of(schemas["task"], job)),
+              "未被拒绝：成功任务必须交付结果")
 
-    # FAILED 必须有 error
     job = copy.deepcopy(sample("job.failed.env3002.json"))
     job.pop("error")
-    errs = errors_of(schemas["task"], job)
-    rep.check("FAILED 缺少 error 被拒绝", bool(errs), "未被拒绝：失败任务必须说明原因")
+    rep.check("FAILED 缺少 error 被拒绝",
+              bool(errors_of(schemas["task"], job)),
+              "未被拒绝：失败任务必须说明原因")
 
-    # 错误码格式
     job = copy.deepcopy(sample("job.failed.env3002.json"))
     job["error"]["code"] = "NOT_A_CODE"
-    errs = errors_of(schemas["task"], job)
-    rep.check("非法错误码格式被拒绝", bool(errs), "未被拒绝：错误码须形如 ENV_3002")
+    rep.check("非法错误码格式被拒绝",
+              bool(errors_of(schemas["task"], job)),
+              "未被拒绝：错误码须形如 ENV_3002")
 
     # 关键语义：检出问题 != 执行失败。
-    # 一个 SUCCEEDED 的任务，其 output 中允许出现发现项；这不改变其终态。
-    job = copy.deepcopy(sample("job.succeeded.json"))
-    job["output"]["findings"] = [
-        {"type": "MISSING", "target": "main.o", "dependency": "config.h"}
-    ]
-    errs = errors_of(schemas["task"], job)
-    rep.check(
-        "SUCCEEDED 携带发现项仍然合法（检出 MD != 执行失败）",
-        not errs,
-        "\n".join(errs),
-    )
+    # 一次成功的检测任务，其 output 中允许承载发现项，任务终态仍是 SUCCEEDED。
+    # 用检测类任务构造该场景——DRAFT 与 REPAIR 的专有输出契约中本就没有发现项。
+    findings_job = {
+        "schema_version": "1.0",
+        "job_id": "job-full01",
+        "job_type": "FULL_CHECK",
+        "status": "SUCCEEDED",
+        "input": sample("create-full-check-job.request.json")["input"],
+        "output": {
+            "report_artifact_id": "md-report-001",
+            "findings": [
+                {"type": "MISSING", "target": "main.o", "dependency": "config.h"}
+            ],
+        },
+    }
+    rep.check("SUCCEEDED 携带发现项仍然合法（检出 MD != 执行失败）",
+              not errors_of(schemas["task"], findings_job),
+              "被误拒：发现项不应使任务变为失败")
 
-    # 反向：SUCCEEDED 不得同时带 error
     job = copy.deepcopy(sample("job.succeeded.json"))
     job["error"] = {"code": "ENV_3002", "message": "不应出现"}
-    errs = errors_of(schemas["task"], job)
-    rep.check(
-        "SUCCEEDED 同时携带 error 应被拒绝",
-        bool(errs),
-        "未被拒绝：成功与失败语义必须互斥",
-    )
+    rep.check("SUCCEEDED 同时携带 error 应被拒绝",
+              bool(errors_of(schemas["task"], job)),
+              "未被拒绝：成功与失败语义必须互斥")
 
-    # output 与 error 都是终态的产物：未结束的任务不得携带二者
+    # output 与 error 都是终态的产物
     for status in ("QUEUED", "RUNNING"):
         job = copy.deepcopy(sample("job.running.json"))
         job["status"] = status
 
         with_error = copy.deepcopy(job)
         with_error["error"] = {"code": "ENV_3002", "message": "未结束不应有 error"}
-        rep.check(
-            f"{status} 携带 error 应被拒绝",
-            bool(errors_of(schemas["task"], with_error)),
-            "未被拒绝：error 只应出现在终态",
-        )
+        rep.check(f"{status} 携带 error 应被拒绝",
+                  bool(errors_of(schemas["task"], with_error)),
+                  "未被拒绝：error 只应出现在终态")
 
         with_output = copy.deepcopy(job)
         with_output["output"] = copy.deepcopy(sample("job.succeeded.json")["output"])
-        rep.check(
-            f"{status} 携带 output 应被拒绝",
-            bool(errors_of(schemas["task"], with_output)),
-            "未被拒绝：output 只应出现在终态",
-        )
+        rep.check(f"{status} 携带 output 应被拒绝",
+                  bool(errors_of(schemas["task"], with_output)),
+                  "未被拒绝：output 只应出现在终态")
 
 
-def check_05_enum_consistency(schemas: dict, rep: Report) -> None:
-    print("\n检查 05：跨 schema 枚举一致性（防契约漂移）")
+def check_05_consistency(schemas: dict, rep: Report) -> None:
+    print("\n检查 05：跨 schema 一致性（防契约漂移）")
 
     task_types = set(schemas["task"]["properties"]["job_type"]["enum"])
     req_types = set(schemas["job-create-request"]["properties"]["job_type"]["enum"])
-    rep.check(
-        "job_type 枚举在 task 与 create-request 中一致",
-        task_types == req_types,
-        f"task={sorted(task_types)}\ncreate-request={sorted(req_types)}",
-    )
+    rep.check("job_type 枚举在 task 与 create-request 中一致",
+              task_types == req_types,
+              f"task={sorted(task_types)}\ncreate-request={sorted(req_types)}")
+
+    missing_in = task_types - set(INPUT_SCHEMA)
+    extra_in = set(INPUT_SCHEMA) - task_types
+    rep.check("每个 job_type 都有对应的输入契约",
+              not missing_in and not extra_in,
+              f"缺契约：{sorted(missing_in)}\n多余映射：{sorted(extra_in)}")
+
+    for job_type, schema_name in INPUT_SCHEMA.items():
+        rep.check(f"{job_type} 的输入契约 {schema_name}.schema.json 已加载",
+                  schema_name in schemas,
+                  f"未找到 {schema_name}.schema.json")
 
     statuses = set(schemas["task"]["properties"]["status"]["enum"])
     terminal = {"FAILED", "TIMED_OUT", "CANCELLED"}
-    rep.check(
-        "状态枚举包含全部终态",
-        terminal <= statuses,
-        f"缺失：{sorted(terminal - statuses)}",
-    )
+    rep.check("状态枚举包含全部终态", terminal <= statuses,
+              f"缺失：{sorted(terminal - statuses)}")
 
-
-# -------------------------------------------------------------------- main
 
 def check_06_artifact_digest_is_real(schemas: dict, rep: Report) -> None:
     """样例中记录的摘要必须能对应到真实文件。
@@ -304,16 +354,12 @@ def check_06_artifact_digest_is_real(schemas: dict, rep: Report) -> None:
         return
 
     raw = target.read_bytes()
-    rep.check(
-        "artifact.sha256 与文件内容一致",
-        art.get("sha256") == hashlib.sha256(raw).hexdigest(),
-        f"样例记录 {art.get('sha256')}\n实际摘要 {hashlib.sha256(raw).hexdigest()}",
-    )
-    rep.check(
-        "artifact.size_bytes 与文件大小一致",
-        art.get("size_bytes") == len(raw),
-        f"样例记录 {art.get('size_bytes')}，实际 {len(raw)}",
-    )
+    rep.check("artifact.sha256 与文件内容一致",
+              art.get("sha256") == hashlib.sha256(raw).hexdigest(),
+              f"样例记录 {art.get('sha256')}\n实际摘要 {hashlib.sha256(raw).hexdigest()}")
+    rep.check("artifact.size_bytes 与文件大小一致",
+              art.get("size_bytes") == len(raw),
+              f"样例记录 {art.get('size_bytes')}，实际 {len(raw)}")
 
 
 def check_07_error_codes_documented(schemas: dict, rep: Report) -> None:
@@ -333,53 +379,81 @@ def check_07_error_codes_documented(schemas: dict, rep: Report) -> None:
     used: dict[str, list[str]] = {}
     for path in sorted(SAMPLES.glob("*.json")):
         obj = load_json(path)
-        code = (obj.get("error") or {}).get("code")
-        if code:
-            used.setdefault(code, []).append(path.name)
+        if isinstance(obj, dict):
+            code = (obj.get("error") or {}).get("code")
+            if code:
+                used.setdefault(code, []).append(path.name)
 
     rep.check("样例覆盖至少一个错误码", bool(used), "没有任何样例包含 error.code")
 
     for code, files in sorted(used.items()):
-        rep.check(
-            f"{code} 已在 error-codes.md 中定义",
-            code in doc_text,
-            f"被 {', '.join(files)} 使用，但文档中查无此码",
-        )
+        rep.check(f"{code} 已在 error-codes.md 中定义",
+                  code in doc_text,
+                  f"被 {', '.join(files)} 使用，但文档中查无此码")
 
 
 def check_08_success_invariants(schemas: dict, rep: Report) -> None:
-    """成功任务的输出必须自洽。
-
-    接口说明中承诺：status = SUCCEEDED 蕴含 build_ok / artifact_present / verify_ok
-    全为真。承诺必须在样例上成立，否则文档与契约会分叉。
-    """
+    """成功任务的输出必须自洽。"""
     print("\n检查 08：成功任务的输出不变式")
 
     job = sample("job.succeeded.json")
-    if job.get("status") != "SUCCEEDED":
-        rep.check("成功样例的 status 为 SUCCEEDED", False,
-                  f"实际 {job.get('status')!r}")
-        return
-
     result = (job.get("output") or {}).get("result") or {}
     for flag in ("build_ok", "artifact_present", "verify_ok"):
-        rep.check(
-            f"SUCCEEDED 蕴含 result.{flag} 为真",
-            result.get(flag) is True,
-            f"实际 {result.get(flag)!r}",
-        )
+        rep.check(f"DRAFT SUCCEEDED 蕴含 result.{flag} 为真",
+                  result.get(flag) is True, f"实际 {result.get(flag)!r}")
 
     iters = (job.get("output") or {}).get("iterations") or []
-    last_outcome = iters[-1].get("outcome") if iters else None
-    rep.check(
-        "成功任务的最后一轮不以失败告终",
-        bool(iters) and last_outcome in {"BUILD_OK", "VERIFY_OK"},
-        f"最后一轮 outcome = {last_outcome!r}",
-    )
+    last = iters[-1].get("outcome") if iters else None
+    rep.check("DRAFT 成功任务的最后一轮不以失败告终",
+              bool(iters) and last in {"BUILD_OK", "VERIFY_OK"},
+              f"最后一轮 outcome = {last!r}")
 
+    repair = sample("job.repair.succeeded.json")
+    ver = (repair.get("output") or {}).get("verification") or {}
+    for flag in ("build_ok", "test_ok", "recheck_ok"):
+        rep.check(f"REPAIR SUCCEEDED 蕴含 verification.{flag} 为真",
+                  ver.get(flag) is True, f"实际 {ver.get(flag)!r}")
+
+    fixed = (repair.get("output") or {}).get("fixed") or []
+    rep.check("REPAIR 成功任务至少修复一处", bool(fixed), "fixed 为空")
+
+
+def check_09_repair_consumes_missing_only(schemas: dict, rep: Report) -> None:
+    """修复只针对缺失依赖。
+
+    报告本身可以同时包含 MISSING 与 REDUNDANT（检测服务一次给出全部发现），
+    但修复请求必须把范围限定为 MISSING——请求修复冗余依赖应被拒绝。
+    """
+    print("\n检查 09：修复任务只消费缺失依赖报告")
+
+    req = sample("create-repair-job.request.json")
+    rep.check("修复请求的 finding_type 为 MISSING",
+              req["input"]["report"].get("finding_type") == "MISSING",
+              f"实际 {req['input']['report'].get('finding_type')!r}")
+
+    bad = copy.deepcopy(req)
+    bad["input"]["report"]["finding_type"] = "REDUNDANT"
+    rep.check("请求修复冗余依赖被拒绝",
+              bool(errors_of(schemas["job-input-repair"], bad["input"])),
+              "未被拒绝：修复只针对缺失依赖")
+
+    # 报告样例同时含两类发现，用于验证「修复只消费其中一类」
+    rep_obj = sample("error-report.json")
+    kinds = {f.get("type") for f in rep_obj.get("findings", [])}
+    rep.check("报告样例覆盖 MISSING 与 REDUNDANT 两类",
+              kinds == {"MISSING", "REDUNDANT"},
+              f"实际 {sorted(kinds)}")
+
+    provs = {f.get("provenance") for f in rep_obj.get("findings", [])}
+    rep.check("报告样例区分工具来源与人工来源",
+              "TOOL" in provs and provs & {"INSTRUCTOR_ORACLE", "MANUAL"},
+              f"实际 {sorted(p for p in provs if p)}")
+
+
+# -------------------------------------------------------------------- main
 
 def main() -> int:
-    print("接口契约校验：DRAFT 任务")
+    print("接口契约校验")
     print(f"契约目录：{CONTRACTS}")
     print("=" * 68)
 
@@ -387,14 +461,15 @@ def main() -> int:
     print(f"已加载 schema：{', '.join(sorted(schemas))}")
 
     rep = Report()
-    check_01_valid_samples_pass(schemas, rep)
+    check_01_all_types_pass(schemas, rep)
     check_02_unknown_job_type_rejected(schemas, rep)
-    check_03_missing_required_input_rejected(schemas, rep)
+    check_03_missing_required_rejected(schemas, rep)
     check_04_error_semantics(schemas, rep)
-    check_05_enum_consistency(schemas, rep)
+    check_05_consistency(schemas, rep)
     check_06_artifact_digest_is_real(schemas, rep)
     check_07_error_codes_documented(schemas, rep)
     check_08_success_invariants(schemas, rep)
+    check_09_repair_consumes_missing_only(schemas, rep)
     return rep.summary()
 
 

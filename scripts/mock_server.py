@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""DRAFT 服务的**最小可跑模拟实现**（Python 标准库，零第三方依赖）。
+"""四类任务的**最小可跑模拟实现**（Python 标准库 + jsonschema）。
 
 当前阶段的产出重心是接口契约，本 mock 的作用不是替代真实服务，而是让
-contracts/ 下的契约**可被实际执行验证**：契约能不能表达一次真实的异步任务
-生命周期，跑一下就知道。
+contracts/ 下的契约**可被实际执行验证**：契约能不能表达四类任务真实的
+异步生命周期，跑一下就知道。
+
+校验一律使用 contracts/*.schema.json，不另写校验逻辑——schema 是契约的
+唯一事实来源，手写第二套判断终将与它漂移。
 
 实现范围：
-    POST /v1/dockerfile-jobs      创建 DRAFT 任务，立即 202 + QUEUED
-    GET  /v1/jobs/{job_id}        查询任务状态与结果
-    GET  /v1/artifacts/{id}       下载产物（证明产物可被下游读取）
+    POST /v1/dockerfile-jobs            创建环境生成任务（DRAFT）
+    POST /v1/full-check-jobs            创建全量检测任务（FULL_CHECK）
+    POST /v1/incremental-check-jobs     创建增量检测任务（INCREMENTAL_CHECK）
+    POST /v1/repair-jobs                创建依赖修复任务（REPAIR）
+    GET  /v1/jobs/{job_id}              查询任务
+    GET  /v1/artifacts/{artifact_id}    下载产物
 
-行为模拟：
-    任务受理后转 RUNNING，数秒后转为终态。
-    默认 SUCCEEDED；若 repository.url 以 "fail" 结尾，则模拟 ENV_3002。
+执行模拟：
+    DRAFT 与 REPAIR 有完整的模拟执行路径；FULL_CHECK 与 INCREMENTAL_CHECK
+    由其他服务负责，这里只做受理与状态迁移，输出标注为占位。
 
 用法：
     python scripts/mock_server.py [--port 8080]
@@ -21,7 +27,7 @@ contracts/ 下的契约**可被实际执行验证**：契约能不能表达一�
     curl -s -X POST http://127.0.0.1:8080/v1/dockerfile-jobs \\
          -H 'Content-Type: application/json' \\
          -d @contracts/samples/create-dockerfile-job.request.json
-    curl -s http://127.0.0.1:8080/v1/jobs/job-draft01
+    curl -s http://127.0.0.1:8080/v1/jobs/<job_id>
 """
 
 from __future__ import annotations
@@ -30,6 +36,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 import threading
 import time
 import uuid
@@ -37,18 +44,49 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+try:
+    from jsonschema import Draft202012Validator
+except ImportError:  # pragma: no cover
+    sys.exit("缺少依赖 jsonschema。请先安装：\n    python -m pip install jsonschema")
+
 ROOT = Path(__file__).resolve().parent.parent
+CONTRACTS = ROOT / "contracts"
 FIXTURE_DOCKERFILE = ROOT / "fixtures" / "draft" / "docker" / "Dockerfile.ok"
 
 SCHEMA_VERSION = "1.0"
-
-JOB_TYPES = {"DRAFT", "FULL_CHECK", "INCREMENTAL_CHECK", "REPAIR"}
 TERMINAL = {"SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"}
+
+# 端点 -> job_type
+ENDPOINTS = {
+    "/v1/dockerfile-jobs": "DRAFT",
+    "/v1/full-check-jobs": "FULL_CHECK",
+    "/v1/incremental-check-jobs": "INCREMENTAL_CHECK",
+    "/v1/repair-jobs": "REPAIR",
+}
+
+# job_type -> 专有输入 schema
+INPUT_SCHEMA = {
+    "DRAFT": "job-input-draft",
+    "FULL_CHECK": "job-input-full-check",
+    "INCREMENTAL_CHECK": "job-input-incremental-check",
+    "REPAIR": "job-input-repair",
+}
 
 # 内存态任务表 + 产物表。mock 不做持久化，进程退出即丢失。
 JOBS: dict[str, dict] = {}
 ARTIFACTS: dict[str, dict] = {}
 LOCK = threading.Lock()
+
+
+def load_schemas() -> dict:
+    suffix = ".schema.json"
+    out = {}
+    for path in sorted(CONTRACTS.glob(f"*{suffix}")):
+        out[path.name[: -len(suffix)]] = json.loads(path.read_text(encoding="utf-8"))
+    return out
+
+
+SCHEMAS = load_schemas()
 
 
 def now_iso() -> str:
@@ -61,54 +99,158 @@ def new_job_id() -> str:
 
 # ------------------------------------------------------------------ 输入校验
 
-def validate_create_request(body: dict) -> str | None:
-    """返回错误消息，None 表示通过。
+def schema_errors(schema_name: str, instance) -> list[str]:
+    """按契约 schema 校验，返回人类可读的错误列表。"""
+    schema = SCHEMAS.get(schema_name)
+    if schema is None:
+        return [f"契约缺失：{schema_name}.schema.json 未找到"]
+    validator = Draft202012Validator(schema)
+    out = []
+    for err in sorted(validator.iter_errors(instance), key=lambda e: list(e.path)):
+        loc = "/".join(str(p) for p in err.path) or "<root>"
+        out.append(f"{loc}: {err.message}")
+    return out
 
-    这里做的是**契约要求的最小校验**，与 contracts/ 下的 schema 保持一致。
-    完整校验见 scripts/validate.py。
+
+def validate_request(body) -> list[str]:
+    """校验创建请求：先通用信封，再按 job_type 校验专有输入。
+
+    返回空列表表示通过。
     """
-    if not isinstance(body, dict):
-        return "请求体必须是 JSON 对象"
-    if "job_id" in body:
-        return "job_id 由服务端产生，请求中不得携带"
+    errs = schema_errors("job-create-request", body)
+    if errs:
+        return errs
 
-    job_type = body.get("job_type")
-    if job_type not in JOB_TYPES:
-        return f"未知 job_type：{job_type!r}；允许值 {sorted(JOB_TYPES)}"
+    payload = body["input"]
+    errs = schema_errors(INPUT_SCHEMA[body["job_type"]], payload)
+    if errs:
+        return errs
 
-    payload = body.get("input")
-    if not isinstance(payload, dict):
-        return "缺少 input 或 input 不是对象"
+    return cross_checks(body["job_type"], payload)
 
-    if job_type != "DRAFT":
-        return f"本 mock 仅实现 DRAFT，收到 {job_type}"
 
-    repo = payload.get("repository")
-    if not isinstance(repo, dict) or not repo.get("url"):
-        return "input.repository.url 必填"
+def cross_checks(job_type: str, payload: dict) -> list[str]:
+    """schema 表达不了的语义约束。
 
-    build = payload.get("build")
-    if not isinstance(build, dict):
-        return "input.build 必填"
-    for field in ("command", "verify_command"):
-        if not build.get(field):
-            return f"input.build.{field} 必填"
+    历史图必须能追溯到 base commit：基线图所依据的提交与配置，必须与本次
+    检测的提交与配置一致。这层是「基线是否可比」的判断，静态 schema 无法表达。
+    """
+    if job_type != "INCREMENTAL_CHECK":
+        return []
 
-    limits = payload.get("limits")
-    if not isinstance(limits, dict):
-        return "input.limits 必填"
-    for field in ("max_iterations", "timeout_seconds"):
-        if not isinstance(limits.get(field), int) or limits[field] < 1:
-            return f"input.limits.{field} 必填且为正整数"
+    errs = []
+    baseline = payload["baseline"]
+    if baseline["commit"] != payload["base_commit"]:
+        errs.append(
+            f"baseline/commit: 基线图所依据的提交 {baseline['commit']} "
+            f"与 base_commit {payload['base_commit']} 不一致"
+        )
+    if baseline["configuration_id"] != payload["environment"]["configuration_id"]:
+        errs.append(
+            f"baseline/configuration_id: 基线图配置 {baseline['configuration_id']} "
+            f"与本次环境配置 {payload['environment']['configuration_id']} 不一致"
+        )
+    return errs
 
-    docs = payload.get("context_documents")
-    if docs is not None and (not isinstance(docs, list) or len(docs) > 2):
-        return "input.context_documents 必须是数组且最多 2 个"
 
-    return None
+# ------------------------------------------------------------------ 产物登记
+
+def register_artifact(job_id, job_type, commit, blob: bytes, media_type: str) -> str:
+    """登记一个产物，返回 artifact_id。"""
+    type_for = {"DRAFT": "DOCKERFILE", "REPAIR": "PATCH"}
+    name_for = {"DRAFT": "Dockerfile", "REPAIR": "fix.patch"}
+    kind = type_for.get(job_type, "BUILD_LOG")
+
+    art_id = kind.lower().replace("_", "") + "-" + uuid.uuid4().hex[:6]
+    ARTIFACTS[art_id] = {
+        "artifact_id": art_id,
+        "type": kind,
+        "uri": f"artifact://{job_type.lower()}/{job_id}/{name_for.get(job_type, 'log.txt')}",
+        "media_type": media_type,
+        "producer_job_id": job_id,
+        "sha256": hashlib.sha256(blob).hexdigest(),
+        "size_bytes": len(blob),
+        "created_at": now_iso(),
+        "source_commit": commit,
+        "_blob": blob,
+    }
+    return art_id
 
 
 # -------------------------------------------------------------- 任务生命周期
+
+def output_for_draft(job: dict) -> dict:
+    raw = FIXTURE_DOCKERFILE.read_bytes() if FIXTURE_DOCKERFILE.exists() else b""
+    art_id = register_artifact(job["job_id"], "DRAFT",
+                               job["input"]["repository"].get("commit", ""),
+                               raw, "text/x-dockerfile")
+    job["output"] = {
+        "dockerfile_artifact_id": art_id,
+        "image_ref": f"draft-{job['job_id']}:1.0",
+        "resolved_commit": job["input"]["repository"].get("commit", ""),
+        "iterations": [
+            {
+                "round": 0,
+                "action": "INITIAL",
+                "reason": "依据 context_documents 推断构建命令为 make，"
+                          "选用 ubuntu:22.04 并显式安装 build-essential。",
+                "outcome": "BUILD_OK",
+            }
+        ],
+        "result": {
+            "build_ok": True,
+            "artifact_present": True,
+            "verify_ok": True,
+            "verify_stdout": "hello draft\n",
+            "rounds_used": 0,
+        },
+    }
+
+
+def output_for_repair(job: dict) -> dict:
+    patch = (
+        "--- a/Makefile\n"
+        "+++ b/Makefile\n"
+        "@@ -5,7 +5,7 @@\n"
+        " main.o: main.c\n"
+        "-\t$(CC) $(CFLAGS) -c main.c -o main.o\n"
+        "+\t$(CC) $(CFLAGS) -c main.c -o main.o\n"
+        "+main.o: config.h feature.h\n"
+    ).encode()
+    art_id = register_artifact(job["job_id"], "REPAIR",
+                               job["input"]["repository"].get("commit", ""),
+                               patch, "text/x-diff")
+    job["output"] = {
+        "patch_artifact_id": art_id,
+        "resolved_commit": job["input"]["repository"].get("commit", ""),
+        "fixed": [
+            {"target": "main.o", "dependency": "config.h",
+             "style": "TARGET", "strategy": "在该目标的依赖列表中直接追加依赖项"},
+            {"target": "main.o", "dependency": "feature.h",
+             "style": "TARGET", "strategy": "在该目标的依赖列表中追加依赖项"},
+        ],
+        "rejected": [
+            {"target": "main.o", "dependency": "util.h",
+             "reason": "改用通配符宏后引入了本配置下未使用的依赖，会新增冗余声明"}
+        ],
+        "declaration_style_note": "Makefile 使用原子依赖列表，未经宏组织；"
+                                  "补丁采用直接追加方式，不引入新的宏或隐式规则。",
+        "verification": {
+            "build_ok": True,
+            "test_ok": True,
+            "recheck_ok": True,
+            "recheck_stdout": "make clean && make: 未报告依赖问题\n",
+        },
+    }
+
+
+def output_for_other(job: dict) -> dict:
+    """FULL_CHECK / INCREMENTAL_CHECK 由其他服务负责，这里只占位。"""
+    job["output"] = {
+        "note": f"本 mock 未实现 {job['job_type']} 的执行逻辑；"
+                f"该任务类型由对应服务负责，此处仅验证受理与状态迁移。"
+    }
+
 
 def run_job(job_id: str, should_fail: bool) -> None:
     """后台线程：模拟 QUEUED -> RUNNING -> 终态。"""
@@ -139,51 +281,18 @@ def run_job(job_id: str, should_fail: bool) -> None:
             }
             return
 
-        # 产物：把仓库内的参考 Dockerfile 登记成一个 artifact，
-        # 用于验证「产物可被下游读取」这条交接约定。
-        raw = FIXTURE_DOCKERFILE.read_bytes() if FIXTURE_DOCKERFILE.exists() else b""
-        art_id = "dockerfile-" + uuid.uuid4().hex[:6]
-        ARTIFACTS[art_id] = {
-            "artifact_id": art_id,
-            "type": "DOCKERFILE",
-            "uri": f"artifact://draft/{job_id}/Dockerfile",
-            "media_type": "text/x-dockerfile",
-            "producer_job_id": job_id,
-            "sha256": hashlib.sha256(raw).hexdigest(),
-            "size_bytes": len(raw),
-            "created_at": now_iso(),
-            "source_commit": job["input"]["repository"].get("commit", ""),
-            "_blob": raw,
-        }
-
+        builder = {
+            "DRAFT": output_for_draft,
+            "REPAIR": output_for_repair,
+        }.get(job["job_type"], output_for_other)
+        builder(job)
         job["status"] = "SUCCEEDED"
-        job["output"] = {
-            "dockerfile_artifact_id": art_id,
-            "image_ref": f"draft-{job_id}:1.0",
-            "resolved_commit": job["input"]["repository"].get("commit", ""),
-            "iterations": [
-                {
-                    "round": 0,
-                    "action": "INITIAL",
-                    "reason": "依据 context_documents 推断构建命令为 make，"
-                    "选用 ubuntu:22.04 并显式安装 build-essential。",
-                    "outcome": "BUILD_OK",
-                }
-            ],
-            "result": {
-                "build_ok": True,
-                "artifact_present": True,
-                "verify_ok": True,
-                "verify_stdout": "hello draft\n",
-                "rounds_used": 0,
-            },
-        }
 
 
 # ------------------------------------------------------------------ HTTP 层
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "DraftMock/1.0"
+    server_version = "DevOpsMock/1.0"
 
     # ---- 工具方法 ----
 
@@ -202,18 +311,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def _error(self, code: int, err_code: str, message: str) -> None:
+    def _error(self, code: int, err_code: str, message) -> None:
+        if isinstance(message, list):
+            message = "; ".join(message)
         self._send(code, {
             "error": {"code": err_code, "message": message, "at": now_iso()}
         })
 
-    def log_message(self, fmt, *args):  # 让日志带方法+路径，便于观察
-        print(f"[mock] {self.command} {self.path} -> {args[1] if len(args) > 1 else ''}")
+    def log_message(self, fmt, *args):
+        code = args[1] if len(args) > 1 else ""
+        print(f"[mock] {self.command} {self.path} -> {code}")
 
     # ---- 路由 ----
 
     def do_POST(self):  # noqa: N802
-        if self.path != "/v1/dockerfile-jobs":
+        job_type = ENDPOINTS.get(self.path)
+        if job_type is None:
             self._error(404, "EXEC_4002", f"未知端点：POST {self.path}")
             return
 
@@ -224,19 +337,26 @@ class Handler(BaseHTTPRequestHandler):
             self._error(400, "EXEC_4002", f"请求体不是合法 JSON：{exc}")
             return
 
-        problem = validate_create_request(body)
-        if problem:
-            self._error(400, "EXEC_4002", problem)
+        if isinstance(body, dict) and body.get("job_type") not in (None, job_type):
+            self._error(400, "EXEC_4002",
+                        f"job_type {body.get('job_type')!r} 与端点 {self.path} "
+                        f"（{job_type}）不匹配")
+            return
+
+        problems = validate_request(body)
+        if problems:
+            self._error(400, "EXEC_4002", problems)
             return
 
         job_id = new_job_id()
-        should_fail = body["input"]["repository"]["url"].rstrip("/").endswith("fail")
+        repo_url = body["input"].get("repository", {}).get("url", "")
+        should_fail = repo_url.rstrip("/").endswith("fail")
 
         job = {
             "schema_version": SCHEMA_VERSION,
             "job_id": job_id,
             "trace_id": body.get("trace_id", f"trace-{uuid.uuid4().hex[:8]}"),
-            "job_type": "DRAFT",
+            "job_type": job_type,
             "status": "QUEUED",
             "execution": {"created_at": now_iso(), "attempt": 1},
             "input": body["input"],
@@ -246,10 +366,9 @@ class Handler(BaseHTTPRequestHandler):
 
         threading.Thread(target=run_job, args=(job_id, should_fail), daemon=True).start()
 
-        # 202：已受理，尚未完成
         self._send(202, {
             "job_id": job_id,
-            "job_type": "DRAFT",
+            "job_type": job_type,
             "status": "QUEUED",
             "trace_id": job["trace_id"],
             "created_at": job["execution"]["created_at"],
@@ -281,26 +400,24 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path in ("/v1/jobs", "/healthz"):
             with LOCK:
-                summary = [
-                    {"job_id": j["job_id"], "status": j["status"],
-                     "job_type": j["job_type"]}
-                    for j in JOBS.values()
-                ]
-            self._send(200, {"jobs": summary})
+                summary = [{"job_id": j["job_id"], "job_type": j["job_type"],
+                            "status": j["status"]} for j in JOBS.values()]
+            self._send(200, {"jobs": summary, "endpoints": sorted(ENDPOINTS)})
             return
 
         self._error(404, "EXEC_4002", f"未知端点：GET {self.path}")
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="DRAFT 服务最小模拟实现")
+    ap = argparse.ArgumentParser(description="四类任务服务的最小模拟实现")
     ap.add_argument("--port", type=int, default=8080)
     ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args()
 
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
-    print("DRAFT mock 已启动（内存态，无持久化）")
-    print(f"  POST http://{args.host}:{args.port}/v1/dockerfile-jobs")
+    print("DevOps mock 已启动（内存态，无持久化）")
+    for path, jt in sorted(ENDPOINTS.items()):
+        print(f"  POST http://{args.host}:{args.port}{path:<30} {jt}")
     print(f"  GET  http://{args.host}:{args.port}/v1/jobs/{{job_id}}")
     print(f"  GET  http://{args.host}:{args.port}/v1/artifacts/{{artifact_id}}")
     print("  Ctrl+C 停止")
