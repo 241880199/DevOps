@@ -1,0 +1,20 @@
+{
+  "job_type": "DRAFT",
+  "trace_id": "trace-draft-0001",
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66e"
+    },
+    "build": {
+      "command": "make",
+      "verify_command": "./hello",
+      "verify_expect": "hello draft"
+    },
+    "limits": {
+      "max_iterations": 5,
+      "timeout_seconds": 600
+    },
+    "context_documents": ["README.md"]
+  }
+}

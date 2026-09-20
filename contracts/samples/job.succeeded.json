@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "job_id": "job-draft01",
+  "trace_id": "trace-draft-0001",
+  "job_type": "DRAFT",
+  "status": "SUCCEEDED",
+  "execution": {
+    "created_at": "2026-09-20T10:00:00Z",
+    "started_at": "2026-09-20T10:00:03Z",
+    "finished_at": "2026-09-20T10:03:41Z",
+    "attempt": 1
+  },
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66e"
+    },
+    "build": {
+      "command": "make",
+      "verify_command": "./hello",
+      "verify_expect": "hello draft"
+    },
+    "limits": {
+      "max_iterations": 5,
+      "timeout_seconds": 600
+    },
+    "context_documents": ["README.md"]
+  },
+  "output": {
+    "dockerfile_artifact_id": "dockerfile-001",
+    "image_ref": "draft-fixture-ok:1.0",
+    "resolved_commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+    "iterations": [
+      {
+        "round": 0,
+        "action": "INITIAL",
+        "reason": "依据 context_documents 中的 README.md 推断构建命令为 make，选用 ubuntu:22.04 作为基础镜像并显式安装 build-essential。",
+        "outcome": "BUILD_OK",
+        "build_log_artifact_id": "buildlog-0001"
+      },
+      {
+        "round": 1,
+        "action": "PATCH",
+        "reason": "首轮构建虽通过，但镜像内残留 apt 缓存；补 --no-install-recommends 并清理 /var/lib/apt/lists。",
+        "error_excerpt": "",
+        "outcome": "BUILD_OK",
+        "build_log_artifact_id": "buildlog-0002"
+      },
+      {
+        "round": 2,
+        "action": "OPTIMIZE",
+        "reason": "改用多阶段构建，将最终镜像体积从 412MB 降至 78MB。",
+        "outcome": "VERIFY_OK",
+        "build_log_artifact_id": "buildlog-0003"
+      }
+    ],
+    "result": {
+      "build_ok": true,
+      "artifact_present": true,
+      "verify_ok": true,
+      "verify_stdout": "hello draft\n",
+      "rounds_used": 2
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/job-input-draft.schema.json",
+  "title": "DraftJobInput",
+  "description": "DRAFT 任务的专有输入。自动构建需要明确的成功判据，因此 build 段同时要求构建命令与功能验证命令。挂在统一任务模型的 input 字段下。",
+  "type": "object",
+  "required": ["repository", "build", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "repository": {
+      "type": "object",
+      "description": "待容器化的仓库与版本。",
+      "required": ["url"],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "仓库地址，须可由构建环境匿名或凭据克隆。"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "完整或缩写 commit SHA。强烈建议给完整 SHA 以保证可复现；缺失时服务端取默认分支 HEAD 并在 output 中回报实际 SHA。"
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "description": "两层成功判据。第一层看 command，第二层看 verify_command。",
+      "required": ["command", "verify_command"],
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "第一层：构建命令。退出码 0 且产物存在才算编译通过。",
+          "examples": ["make"]
+        },
+        "verify_command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "第二层：功能验证命令。",
+          "examples": ["./hello"]
+        },
+        "verify_expect": {
+          "type": "string",
+          "description": "第二层：期望的标准输出（用于自动比对）。缺失时只校验退出码。",
+          "examples": ["hello draft"]
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "description": "执行预算。超限写入 EXEC_4002。",
+      "required": ["max_iterations", "timeout_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "description": "最多迭代修复轮数。达到上限仍未成功则任务失败。"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "单次构建的墙钟上限（秒）。"
+        }
+      }
+    },
+    "context_documents": {
+      "type": "array",
+      "description": "供 DRAFT 读取的项目文档（如 README、INSTALL）。对齐论文做法：最多 2 个。",
+      "maxItems": 2,
+      "items": { "type": "string", "minLength": 1 },
+      "examples": [["README.md", "INSTALL.md"]]
+    }
+  }
+}

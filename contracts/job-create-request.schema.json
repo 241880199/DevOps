@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/job-create-request.schema.json",
+  "title": "JobCreateRequest",
+  "description": "创建任务的请求体。job_id 由服务端产生，请求中不得携带；携带即为非法。",
+  "type": "object",
+  "required": ["job_type", "input"],
+  "additionalProperties": false,
+  "properties": {
+    "job_type": {
+      "type": "string",
+      "enum": ["DRAFT", "FULL_CHECK", "INCREMENTAL_CHECK", "REPAIR"],
+      "description": "必须与 task.schema.json 的 job_type 枚举保持一致；validate.py 会做跨 schema 一致性检查。"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "可选。调用方透传，用于串联同一次平台流程。"
+    },
+    "input": {
+      "type": "object",
+      "description": "任务输入，结构由 job_type 决定。DRAFT 须符合 job-input-draft.schema.json。"
+    }
+  },
+  "not": {
+    "required": ["job_id"],
+    "description": "job_id 必须由服务端产生。"
+  }
+}

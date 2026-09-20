@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/job-output-draft.schema.json",
+  "title": "DraftJobOutput",
+  "description": "DRAFT 任务的专有输出。挂在统一任务模型的 output 字段下。迭代过程本身是产物的一部分：每一轮为什么这样改必须留痕。",
+  "type": "object",
+  "required": ["result", "iterations"],
+  "additionalProperties": false,
+  "properties": {
+    "dockerfile_artifact_id": {
+      "type": "string",
+      "description": "最终 Dockerfile 的产物编号，指向 artifact.schema.json 记录。"
+    },
+    "image_ref": {
+      "type": "string",
+      "description": "构建成功的镜像引用，形如 draft-fixture-ok:1.0。构建未成功时缺失。"
+    },
+    "resolved_commit": {
+      "type": "string",
+      "description": "实际使用的 commit SHA。input 未给 commit 时由服务端解析并在此回报。"
+    },
+    "iterations": {
+      "type": "array",
+      "minItems": 1,
+      "description": "逐轮记录：改了什么、为什么这么改、结果如何。这是 DRAFT 可审计性的核心。",
+      "items": {
+        "type": "object",
+        "required": ["round", "action", "reason", "outcome"],
+        "additionalProperties": false,
+        "properties": {
+          "round": { "type": "integer", "minimum": 0 },
+          "action": {
+            "type": "string",
+            "enum": ["INITIAL", "PATCH", "OPTIMIZE"],
+            "description": "INITIAL 初始生成 / PATCH 修复 / OPTIMIZE 瘦身。"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "本轮修改的选择理由（人工或 AI 给出）。"
+          },
+          "error_excerpt": {
+            "type": "string",
+            "description": "触发本轮修改的构建日志片段。首轮为缺失。"
+          },
+          "build_log_artifact_id": {
+            "type": "string",
+            "description": "本轮完整构建日志的产物编号。"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["BUILD_OK", "BUILD_FAILED", "VERIFY_OK", "VERIFY_FAILED"]
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "description": "最终构建与验证结果，对应 README 中的两层判据。",
+      "required": ["build_ok", "verify_ok", "rounds_used"],
+      "additionalProperties": false,
+      "properties": {
+        "build_ok": {
+          "type": "boolean",
+          "description": "第一层：构建命令退出码 0。"
+        },
+        "artifact_present": {
+          "type": "boolean",
+          "description": "第一层：可执行产物确实生成。"
+        },
+        "verify_ok": {
+          "type": "boolean",
+          "description": "第二层：功能验证退出码 0 且输出匹配 verify_expect。"
+        },
+        "verify_stdout": {
+          "type": "string",
+          "description": "功能验证的实际标准输出。"
+        },
+        "rounds_used": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "实际消耗的迭代轮数。"
+        }
+      }
+    }
+  }
+}

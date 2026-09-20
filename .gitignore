@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 构建产物
+*.o
+*.a
+*.so
+fixtures/draft/hello
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

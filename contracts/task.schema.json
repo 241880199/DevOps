@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/task.schema.json",
+  "title": "Task",
+  "description": "统一任务模型。一份 Job 表达四类耗时任务：DRAFT / FULL_CHECK / INCREMENTAL_CHECK / REPAIR。公共字段对四类任务完全一致，input 与 output 的具体结构由 job_type 决定。",
+  "type": "object",
+  "required": ["schema_version", "job_id", "job_type", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "契约版本。当前 1.0。改字段语义时必须递增。"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^job-[A-Za-z0-9_-]+$",
+      "description": "任务编号，由服务端产生，创建请求中不得携带。"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "串联同一次平台流程的追踪号。可选；由调用方透传，缺失时服务端自行生成。"
+    },
+    "job_type": {
+      "type": "string",
+      "enum": ["DRAFT", "FULL_CHECK", "INCREMENTAL_CHECK", "REPAIR"],
+      "description": "任务种类。未知取值必须被拒绝，由 validate.py 校验。"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"],
+      "description": "QUEUED 已受理 / RUNNING 后台执行 / SUCCEEDED 结果可用 / 其余为终态。"
+    },
+    "execution": {
+      "type": "object",
+      "description": "执行元数据，可选。",
+      "additionalProperties": false,
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "attempt": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "input": {
+      "type": "object",
+      "description": "任务输入。job_type=DRAFT 时必须符合 job-input-draft.schema.json。"
+    },
+    "output": {
+      "type": "object",
+      "description": "任务产物引用。status=SUCCEEDED 时必填。job_type=DRAFT 时必须符合 job-output-draft.schema.json。"
+    },
+    "error": {
+      "$ref": "#/$defs/error",
+      "description": "系统执行错误。status 为 FAILED / TIMED_OUT / CANCELLED 时必填。"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "SUCCEEDED" } },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["output"],
+        "not": { "required": ["error"] },
+        "description": "成功与失败语义互斥：SUCCEEDED 不得携带 error。"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "enum": ["FAILED", "TIMED_OUT", "CANCELLED"] }
+        },
+        "required": ["status"]
+      },
+      "then": { "required": ["error"] }
+    }
+  ],
+  "$defs": {
+    "error": {
+      "type": "object",
+      "description": "系统执行错误。注意：正常分析发现（MD/RD 等）不写这里，见 contracts/error-codes.md。",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z]+_[0-9]{4}$",
+          "description": "错误码，形如 ENV_3002。"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "人类可读的错误摘要。"
+        },
+        "stage": {
+          "type": "string",
+          "enum": ["ENV", "EXEC", "ANALYSIS", "REPAIR"]
+        },
+        "detail": {
+          "type": "string",
+          "description": "补充说明，例如容器内命令与退出码。"
+        },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

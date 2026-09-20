@@ -1,0 +1,14 @@
+# 故障样例：故意缺少 C 工具链，构建必然失败。
+# 用于保存「可定位的构建失败日志」，作为 DRAFT 迭代修复的起点与回归样本。
+#
+#   构建：docker build -f fixtures/draft/docker/Dockerfile.broken -t draft-fixture-broken fixtures/draft
+#   预期：构建失败，日志含 "make: not found"
+
+FROM python:3.13-slim
+
+WORKDIR /work
+COPY main.c Makefile ./
+
+RUN make
+
+CMD ["./hello"]

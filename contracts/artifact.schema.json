@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/artifact.schema.json",
+  "title": "Artifact",
+  "description": "产物记录。约定：Job 只内嵌元数据与小结果，Dockerfile、构建日志等大文件一律以 artifact URI 引用传递，接收方按约定解析或经下载接口取用。",
+  "type": "object",
+  "required": ["artifact_id", "type", "uri", "media_type", "producer_job_id"],
+  "additionalProperties": false,
+  "properties": {
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "产物编号，在平台内全局唯一。",
+      "examples": ["dockerfile-001", "buildlog-0007"]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "DOCKERFILE",
+        "BUILD_LOG",
+        "VERIFY_LOG",
+        "IMAGE_REF",
+        "ACTUAL_GRAPH",
+        "DECLARED_GRAPH",
+        "ERROR_REPORT",
+        "PATCH"
+      ],
+      "description": "产物类型。DOCKERFILE / BUILD_LOG / VERIFY_LOG / IMAGE_REF 由环境生成服务产出；ACTUAL_GRAPH / DECLARED_GRAPH / ERROR_REPORT 由依赖检测服务产出；PATCH 由依赖修复服务产出。"
+    },
+    "uri": {
+      "type": "string",
+      "pattern": "^artifact://[^/]+/[^/]+/.+$",
+      "description": "产物地址，形如 artifact://<存储域>/<job_id>/<文件名>。接收方必须事先约定解析方式：本地路径映射，或经 GET /v1/artifacts/{artifact_id} 下载。",
+      "examples": ["artifact://draft/job-draft01/Dockerfile"]
+    },
+    "media_type": {
+      "type": "string",
+      "description": "MIME 类型。",
+      "examples": ["text/plain", "application/json", "text/x-dockerfile"]
+    },
+    "producer_job_id": {
+      "type": "string",
+      "pattern": "^job-[A-Za-z0-9_-]+$",
+      "description": "产出该产物的任务编号，用于追溯。"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "内容摘要，需要在交接时核验完整性则填。"
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_commit": {
+      "type": "string",
+      "description": "产该产物时仓库所处的 commit SHA。保证产物与源码版本可对应。"
+    }
+  }
+}
