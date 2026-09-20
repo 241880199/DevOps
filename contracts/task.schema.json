@@ -49,7 +49,7 @@
     },
     "output": {
       "type": "object",
-      "description": "任务产物引用。status=SUCCEEDED 时必填。job_type=DRAFT 时必须符合 job-output-draft.schema.json。"
+      "description": "任务产物引用。仅在终态出现：status=SUCCEEDED 时必填，QUEUED/RUNNING 时不得携带。job_type=DRAFT 时必须符合 job-output-draft.schema.json。"
     },
     "error": {
       "$ref": "#/$defs/error",
@@ -76,6 +76,18 @@
         "required": ["status"]
       },
       "then": { "required": ["error"] }
+    },
+    {
+      "if": {
+        "properties": { "status": { "enum": ["QUEUED", "RUNNING"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [{ "required": ["error"] }, { "required": ["output"] }]
+        },
+        "description": "output 与 error 都是终态的产物：未结束的任务不得携带二者。"
+      }
     }
   ],
   "$defs": {

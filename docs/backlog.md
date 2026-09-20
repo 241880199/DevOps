@@ -11,7 +11,12 @@
 | DRAFT 输出契约 | `contracts/job-output-draft.schema.json` | 迭代记录与结果结构可用；`validate.py` 检查 01 通过 |
 | 产物记录契约 | `contracts/artifact.schema.json` | 下游可依 URI 取到内容；端到端验证已通过 |
 | 错误语义分层 | `contracts/error-codes.md`、`task.schema.json` 的 `allOf` | 成功/失败语义互斥；`validate.py` 检查 04 通过 |
-| 契约自动校验 | `scripts/validate.py` | 27/27 项通过，退出码 0 |
+| 契约自动校验 | `scripts/validate.py` | 40/40 项通过，退出码 0 |
+| 下游接口文档 | `docs/接口说明.md` | 含字段用途、联调检查清单、完整走查 |
+| 错误码样例补全 | `contracts/samples/job.timed_out.exec4002.json` | `EXEC_4002` 有样例支撑 |
+| 终态语义约束 | `task.schema.json` 的 `allOf` | `QUEUED`/`RUNNING` 携带 `output` 或 `error` 被拒绝 |
+| 错误码与文档一致性 | `scripts/validate.py` 检查 07 | 样例用到的错误码均已归档 |
+| 成功输出不变式 | `scripts/validate.py` 检查 08 | `SUCCEEDED` 蕴含各项判据为真 |
 | 创建/查询接口实现 | `scripts/mock_server.py` | `202 → QUEUED → SUCCEEDED` 全流程实测通过 |
 | 产物下载接口 | `scripts/mock_server.py` | `GET /v1/artifacts/{id}` 返回 539 字节实体 |
 | 固定输入样例 | `fixtures/draft/` | `make` 构建、`./hello` 输出 `hello draft` |

@@ -49,6 +49,18 @@
 
 > 新增错误码时必须同步更新本文件与 `task.schema.json` 的 `error.code` 约束。
 
+### 样例
+
+每个错误码都应有可执行的样例支撑，便于消费方对齐：
+
+| 错误码 | 样例 |
+| --- | --- |
+| `ENV_3002` | `contracts/samples/job.failed.env3002.json` |
+| `EXEC_4002` | `contracts/samples/job.timed_out.exec4002.json` |
+| `ANALYSIS_5001` | 暂无（本服务不产生该码） |
+
+`scripts/validate.py` 检查 07 会扫描全部样例，确认其中出现的错误码都已在本文件中归档——防止样例与文档各自演化。
+
 ---
 
 ## 3. 各错误码的生产者

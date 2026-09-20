@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "job_id": "job-draft04",
+  "trace_id": "trace-draft-0004",
+  "job_type": "DRAFT",
+  "status": "TIMED_OUT",
+  "execution": {
+    "created_at": "2026-09-20T10:20:00Z",
+    "started_at": "2026-09-20T10:20:01Z",
+    "finished_at": "2026-09-20T10:30:13Z",
+    "attempt": 1
+  },
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66e"
+    },
+    "build": {
+      "command": "make",
+      "verify_command": "./hello",
+      "verify_expect": "hello draft"
+    },
+    "limits": {
+      "max_iterations": 5,
+      "timeout_seconds": 600
+    },
+    "context_documents": ["README.md"]
+  },
+  "error": {
+    "code": "EXEC_4002",
+    "stage": "EXEC",
+    "message": "任务超时：单次构建超出预算，任务被终止。",
+    "detail": "limits.timeout_seconds=600，第 3 轮构建累计 612s 未结束。已产出的中间日志见 artifact buildlog-0021。",
+    "at": "2026-09-20T10:30:13Z"
+  }
+}

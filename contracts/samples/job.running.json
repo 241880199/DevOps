@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "job_id": "job-draft03",
+  "trace_id": "trace-draft-0003",
+  "job_type": "DRAFT",
+  "status": "RUNNING",
+  "execution": {
+    "created_at": "2026-09-20T10:10:00Z",
+    "started_at": "2026-09-20T10:10:02Z",
+    "attempt": 1
+  },
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66e"
+    },
+    "build": {
+      "command": "make",
+      "verify_command": "./hello",
+      "verify_expect": "hello draft"
+    },
+    "limits": {
+      "max_iterations": 5,
+      "timeout_seconds": 600
+    },
+    "context_documents": ["README.md"]
+  }
+}

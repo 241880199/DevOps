@@ -10,6 +10,8 @@
   04  系统错误与正常结果不得混淆（检出依赖问题 != 执行失败）
   05  跨 schema 枚举一致性，防止契约漂移
   06  样例中记录的产物摘要与实际文件一致
+  07  样例用到的错误码均已在 error-codes.md 中归档
+  08  成功任务的输出不变式（SUCCEEDED 蕴含各项判据为真）
 
 用法（在仓库根目录执行）：
     python scripts/validate.py
@@ -123,6 +125,14 @@ def check_01_valid_samples_pass(schemas: dict, rep: Report) -> None:
     errs = errors_of(schemas["task"], bad_job)
     rep.check("失败任务符合 task.schema.json", not errs, "\n".join(errs))
 
+    running = sample("job.running.json")
+    errs = errors_of(schemas["task"], running)
+    rep.check("执行中任务符合 task.schema.json", not errs, "\n".join(errs))
+
+    timeout = sample("job.timed_out.exec4002.json")
+    errs = errors_of(schemas["task"], timeout)
+    rep.check("超时任务符合 task.schema.json", not errs, "\n".join(errs))
+
     art = sample("artifact.json")
     errs = errors_of(schemas["artifact"], art)
     rep.check("产物记录符合 artifact.schema.json", not errs, "\n".join(errs))
@@ -234,6 +244,27 @@ def check_04_error_semantics(schemas: dict, rep: Report) -> None:
         "未被拒绝：成功与失败语义必须互斥",
     )
 
+    # output 与 error 都是终态的产物：未结束的任务不得携带二者
+    for status in ("QUEUED", "RUNNING"):
+        job = copy.deepcopy(sample("job.running.json"))
+        job["status"] = status
+
+        with_error = copy.deepcopy(job)
+        with_error["error"] = {"code": "ENV_3002", "message": "未结束不应有 error"}
+        rep.check(
+            f"{status} 携带 error 应被拒绝",
+            bool(errors_of(schemas["task"], with_error)),
+            "未被拒绝：error 只应出现在终态",
+        )
+
+        with_output = copy.deepcopy(job)
+        with_output["output"] = copy.deepcopy(sample("job.succeeded.json")["output"])
+        rep.check(
+            f"{status} 携带 output 应被拒绝",
+            bool(errors_of(schemas["task"], with_output)),
+            "未被拒绝：output 只应出现在终态",
+        )
+
 
 def check_05_enum_consistency(schemas: dict, rep: Report) -> None:
     print("\n检查 05：跨 schema 枚举一致性（防契约漂移）")
@@ -285,6 +316,68 @@ def check_06_artifact_digest_is_real(schemas: dict, rep: Report) -> None:
     )
 
 
+def check_07_error_codes_documented(schemas: dict, rep: Report) -> None:
+    """样例中出现的每个错误码，都必须在 error-codes.md 中有定义。
+
+    错误码文档与样例分处两个文件，极易各自演化：加了新码写了样例却忘了写文档，
+    或文档里列了码却没有样例支撑。这里把两者绑在一起。
+    """
+    print("\n检查 07：样例用到的错误码均已归档")
+
+    doc = CONTRACTS / "error-codes.md"
+    if not doc.exists():
+        rep.check("error-codes.md 存在", False, f"未找到：{doc}")
+        return
+    doc_text = doc.read_text(encoding="utf-8")
+
+    used: dict[str, list[str]] = {}
+    for path in sorted(SAMPLES.glob("*.json")):
+        obj = load_json(path)
+        code = (obj.get("error") or {}).get("code")
+        if code:
+            used.setdefault(code, []).append(path.name)
+
+    rep.check("样例覆盖至少一个错误码", bool(used), "没有任何样例包含 error.code")
+
+    for code, files in sorted(used.items()):
+        rep.check(
+            f"{code} 已在 error-codes.md 中定义",
+            code in doc_text,
+            f"被 {', '.join(files)} 使用，但文档中查无此码",
+        )
+
+
+def check_08_success_invariants(schemas: dict, rep: Report) -> None:
+    """成功任务的输出必须自洽。
+
+    接口说明中承诺：status = SUCCEEDED 蕴含 build_ok / artifact_present / verify_ok
+    全为真。承诺必须在样例上成立，否则文档与契约会分叉。
+    """
+    print("\n检查 08：成功任务的输出不变式")
+
+    job = sample("job.succeeded.json")
+    if job.get("status") != "SUCCEEDED":
+        rep.check("成功样例的 status 为 SUCCEEDED", False,
+                  f"实际 {job.get('status')!r}")
+        return
+
+    result = (job.get("output") or {}).get("result") or {}
+    for flag in ("build_ok", "artifact_present", "verify_ok"):
+        rep.check(
+            f"SUCCEEDED 蕴含 result.{flag} 为真",
+            result.get(flag) is True,
+            f"实际 {result.get(flag)!r}",
+        )
+
+    iters = (job.get("output") or {}).get("iterations") or []
+    last_outcome = iters[-1].get("outcome") if iters else None
+    rep.check(
+        "成功任务的最后一轮不以失败告终",
+        bool(iters) and last_outcome in {"BUILD_OK", "VERIFY_OK"},
+        f"最后一轮 outcome = {last_outcome!r}",
+    )
+
+
 def main() -> int:
     print("接口契约校验：DRAFT 任务")
     print(f"契约目录：{CONTRACTS}")
@@ -300,6 +393,8 @@ def main() -> int:
     check_04_error_semantics(schemas, rep)
     check_05_enum_consistency(schemas, rep)
     check_06_artifact_digest_is_real(schemas, rep)
+    check_07_error_codes_documented(schemas, rep)
+    check_08_success_invariants(schemas, rep)
     return rep.summary()
 
 

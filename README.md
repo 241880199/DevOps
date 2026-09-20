@@ -30,7 +30,7 @@ contracts/                        接口契约（核心）
   samples/                        请求 / 响应 / 错误 / 产物样例
 
 scripts/
-  validate.py                     契约校验，27 项检查
+  validate.py                     契约校验，40 项检查
   mock_server.py                  DRAFT 服务最小可跑实现（零依赖）
 
 fixtures/draft/                   DRAFT 的固定输入样例（最小 GNU Make C 项目）
@@ -38,6 +38,7 @@ fixtures/draft/                   DRAFT 的固定输入样例（最小 GNU Make 
   docker/  Dockerfile.ok  Dockerfile.broken
 
 docs/
+  接口说明.md                      ★ 面向下游消费方的对接文档
   ADR/                            架构决策记录
   AI_USAGE.md                     设计过程与 AI 使用记录
   backlog.md                      进展与待办
@@ -52,9 +53,9 @@ python -m pip install jsonschema
 python scripts/validate.py
 ```
 
-预期：`全部通过：27 / 27 项检查`，退出码 0。
+预期：`全部通过：40 / 40 项检查`，退出码 0。
 
-校验覆盖有效样例、未知 `job_type` 被拒绝、必填输入缺失被拒绝、成功与失败语义互斥、跨 schema 枚举一致性、产物摘要与文件实际内容一致。
+校验覆盖有效样例、未知 `job_type` 被拒绝、必填输入缺失被拒绝、成功与失败语义互斥、未结束的任务不携带结果、跨 schema 枚举一致性、产物摘要与文件实际内容一致、错误码与文档一致、成功任务的输出不变式。
 
 ### 跑通任务生命周期
 
@@ -96,6 +97,10 @@ docker build -f fixtures/draft/docker/Dockerfile.broken -t draft-fixture-broken 
 **大产物以 URI 引用交接，不内嵌进响应。** 任务响应只承载元数据与小结果。理由见 `docs/ADR/ADR-002`。
 
 **「发现问题」与「执行失败」分开表示。** 检出缺失依赖是**成功**完成任务（`status: SUCCEEDED`），基础设施故障才写 `error`。这条混淆会让下游把成功的分析当成故障重试。理由见 `docs/ADR/ADR-003` 与 `contracts/error-codes.md`。
+
+**`output` 与 `error` 只在终态出现。** `QUEUED` / `RUNNING` 阶段只返回任务元数据，消费方因此只需面对一种输出形状。
+
+下游对接请看 **`docs/接口说明.md`**，其中含字段用途、联调检查清单与完整走查。
 
 ## 运行环境
 
