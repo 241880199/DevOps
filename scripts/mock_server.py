@@ -132,24 +132,38 @@ def validate_request(body) -> list[str]:
 def cross_checks(job_type: str, payload: dict) -> list[str]:
     """schema 表达不了的语义约束。
 
-    历史图必须能追溯到 base commit：基线图所依据的提交与配置，必须与本次
-    检测的提交与配置一致。这层是「基线是否可比」的判断，静态 schema 无法表达。
-    """
-    if job_type != "INCREMENTAL_CHECK":
-        return []
+    两个跨字段一致性检查，共同点是「谁和谁必须属于同一个版本」，静态 schema 无法表达：
 
+    - INCREMENTAL_CHECK：历史图必须能追溯到 base commit。基线图所依据的提交与配置，
+      必须与本次检测的提交与配置一致，否则这份基线不适用于当前比较。
+    - REPAIR：报告必须属于当前源码版本。报告声明了 commit 时即可在受理阶段直接比对，
+      不一致则以 REPAIR_6001 拒绝——补丁要按报告生成，报告版本不符时补丁必然打不上。
+    """
     errs = []
-    baseline = payload["baseline"]
-    if baseline["commit"] != payload["base_commit"]:
-        errs.append(
-            f"baseline/commit: 基线图所依据的提交 {baseline['commit']} "
-            f"与 base_commit {payload['base_commit']} 不一致"
-        )
-    if baseline["configuration_id"] != payload["environment"]["configuration_id"]:
-        errs.append(
-            f"baseline/configuration_id: 基线图配置 {baseline['configuration_id']} "
-            f"与本次环境配置 {payload['environment']['configuration_id']} 不一致"
-        )
+
+    if job_type == "INCREMENTAL_CHECK":
+        baseline = payload["baseline"]
+        if baseline["commit"] != payload["base_commit"]:
+            errs.append(
+                f"baseline/commit: 基线图所依据的提交 {baseline['commit']} "
+                f"与 base_commit {payload['base_commit']} 不一致"
+            )
+        if baseline["configuration_id"] != payload["environment"]["configuration_id"]:
+            errs.append(
+                f"baseline/configuration_id: 基线图配置 {baseline['configuration_id']} "
+                f"与本次环境配置 {payload['environment']['configuration_id']} 不一致"
+            )
+
+    if job_type == "REPAIR":
+        report = payload["report"]
+        declared = report.get("commit")
+        if declared and declared != payload["repository"]["commit"]:
+            errs.append(
+                f"report/commit: 报告所依据的提交 {declared} "
+                f"与 repository.commit {payload['repository']['commit']} 不一致"
+                f"（REPAIR_6001：报告失效，修复拒绝执行）"
+            )
+
     return errs
 
 
@@ -188,6 +202,9 @@ def output_for_draft(job: dict) -> dict:
         "dockerfile_artifact_id": art_id,
         "image_ref": f"draft-{job['job_id']}:1.0",
         "resolved_commit": job["input"]["repository"].get("commit", ""),
+        # 检测方的输入要求 commit + configuration_id 共同确定基线身份，而该标识此前
+        # 没有生产者。这里由环境产出方回报，下游照抄即可，不必自行发明。
+        "configuration_id": "cc-mock0",
         "iterations": [
             {
                 "round": 0,
@@ -230,8 +247,9 @@ def output_for_repair(job: dict) -> dict:
              "style": "TARGET", "strategy": "在该目标的依赖列表中追加依赖项"},
         ],
         "rejected": [
-            {"target": "main.o", "dependency": "util.h",
-             "reason": "改用通配符宏后引入了本配置下未使用的依赖，会新增冗余声明"}
+            {"target": "main.o", "dependency": "unused.h",
+             "reason": "候选顺带删除了这条冗余声明。修复只针对缺失依赖，"
+                       "越界改动不予采纳"}
         ],
         "declaration_style_note": "Makefile 使用原子依赖列表，未经宏组织；"
                                   "补丁采用直接追加方式，不引入新的宏或隐式规则。",

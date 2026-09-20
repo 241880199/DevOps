@@ -19,6 +19,12 @@
       "type": "string",
       "description": "实际使用的 commit SHA。input 未给 commit 时由服务端解析并在此回报。"
     },
+    "configuration_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "本次生成的构建环境所固定的配置标识，取值形如 cc-<配置摘要>。全量检测的基线由 commit + configuration_id 共同确定，而该标识此前没有生产者——检测方需要在输入里填它，却只能自己发明。DRAFT 是环境的产出方，由它回报这个值，下游照抄即可，不会出现「同一环境两个名字」。可选：不填则检测方需自行约定。",
+      "examples": ["cc-MODE0", "cc-gcc11-O2"]
+    },
     "iterations": {
       "type": "array",
       "minItems": 1,

@@ -1,7 +1,7 @@
 {
   "artifact_id": "dockerfile-001",
   "type": "DOCKERFILE",
-  "uri": "artifact://b01/job-draft01/Dockerfile",
+  "uri": "artifact://b03/job-draft01/Dockerfile",
   "media_type": "text/x-dockerfile",
   "producer_job_id": "job-draft01",
   "sha256": "4120822b8beeb4bdaed9bd1f5c4f17956c95c9dca9645455b2cbd6b65da25846",

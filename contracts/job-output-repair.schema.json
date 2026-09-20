@@ -17,7 +17,7 @@
     },
     "fixed": {
       "type": "array",
-      "description": "已修复的发现。逐个说明用了哪种策略，便于维护者判断该改动是否可接受。",
+      "description": "已修复的发现。逐个说明用了哪种策略，便于维护者判断该改动是否可接受。可以为空——空表示所有候选都被拒绝，任务仍为 SUCCEEDED，见 contracts/error-codes.md 第 6 节。",
       "items": {
         "type": "object",
         "required": ["target", "dependency", "style", "strategy"],
@@ -39,7 +39,7 @@
     },
     "rejected": {
       "type": "array",
-      "description": "被拒绝的候选及原因。拒绝不是失败——拒绝掉一个会引入新问题的候选是正确行为，但必须留痕。",
+      "description": "被拒绝的候选及原因。拒绝不是失败——拒绝掉一个会引入新问题的候选是正确行为，但必须留痕。fixed 为空时本数组必须非空，否则这次修复既没产出补丁也没留下理由。",
       "items": {
         "type": "object",
         "required": ["reason"],
@@ -61,7 +61,7 @@
     },
     "verification": {
       "type": "object",
-      "description": "补丁的验证结果。三项独立判据，缺一不可。",
+      "description": "补丁的验证结果。三项独立判据，缺一不可。不变式：fixed 非空时三项必须全为 true；fixed 为空时描述被拒候选最后一次的实际观测（例如能构建但复检未过），不受该不变式约束。",
       "required": ["build_ok", "test_ok", "recheck_ok"],
       "additionalProperties": false,
       "properties": {

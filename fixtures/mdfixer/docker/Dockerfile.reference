@@ -1,0 +1,19 @@
+# 参考成功样例：能构建并运行 fixtures/mdfixer 的 Dockerfile。
+#
+# REPAIR 的 environment.image_ref 指向由本文件构建出的镜像——补丁产出后的复构建
+# 与复检必须发生在同一环境里，否则前后结论不可比（见 contracts/job-input-repair.schema.json）。
+#
+#   构建：docker build -f fixtures/mdfixer/docker/Dockerfile.reference -t mdfixer-fixture fixtures/mdfixer
+#   验证：docker run --rm mdfixer-fixture        # 预期输出 12
+
+FROM ubuntu:22.04
+
+WORKDIR /work
+COPY main.c config.h feature.h unused.h Makefile ./
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential \
+ && rm -rf /var/lib/apt/lists/* \
+ && make
+
+CMD ["./app"]

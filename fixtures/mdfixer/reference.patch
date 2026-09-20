@@ -1,0 +1,8 @@
+--- a/Makefile
++++ b/Makefile
+@@ -7,4 +7,4 @@
+ $(TARGET): main.o
+ 	$(CC) $(CFLAGS) -o $@ $^
+-main.o: main.c unused.h
++main.o: main.c unused.h config.h feature.h
+ 	$(CC) $(CFLAGS) -c main.c -o main.o

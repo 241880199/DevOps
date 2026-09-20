@@ -18,7 +18,8 @@
     "build": {
       "command": "make",
       "verify_command": "./hello",
-      "verify_expect": "hello draft"
+      "verify_expect": "hello draft",
+      "project_subdir": "fixtures/draft"
     },
     "limits": {
       "max_iterations": 5,

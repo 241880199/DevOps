@@ -17,14 +17,16 @@
     },
     "report": {
       "artifact_id": "md-report-001",
-      "artifact_uri": "artifact://detect/job-full01/error-report.json",
-      "finding_type": "MISSING"
+      "artifact_uri": "artifact://b03/job-oracle-mdfixer01/error-report.json",
+      "finding_type": "MISSING",
+      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
     },
+    "project_subdir": "fixtures/mdfixer",
     "makefile_path": "Makefile",
     "environment": {
-      "image_ref": "draft-fixture-ok:1.0",
+      "image_ref": "mdfixer-fixture:1.0",
       "build_command": "make",
-      "verify_command": "./hello",
+      "verify_command": "./app",
       "recheck_command": "make clean && make"
     },
     "limits": {
@@ -52,8 +54,8 @@
     "rejected": [
       {
         "target": "main.o",
-        "dependency": "util.h",
-        "reason": "改用通配符宏后引入了本配置下未使用的依赖，会新增冗余声明"
+        "dependency": "unused.h",
+        "reason": "候选补丁顺带删除了 unused.h 这条冗余声明。修复只针对缺失依赖，冗余声明的去留由维护者决定；越界改动会让补丁在评审时被要求拆分，故不予采纳"
       }
     ],
     "declaration_style_note": "Makefile 使用原子依赖列表（main.o 的依赖逐项列出，未经宏组织），因此补丁采用直接追加方式，不引入新的宏或隐式规则。项目内未发现隐式规则声明。",

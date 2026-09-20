@@ -13,6 +13,8 @@
   07  样例用到的错误码均已在 error-codes.md 中归档
   08  成功任务的输出不变式
   09  修复任务只消费缺失依赖报告
+  10  修复的失败边界：rejected[] 与 job.error 各司其职
+  11  修复的固定输入与磁盘上的真实文件对得上
 
 用法（在仓库根目录执行）：
     python scripts/validate.py
@@ -25,6 +27,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -149,7 +152,8 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
     )
 
     # 响应样例：按 job_type 校验专有输出
-    for name in ("job.succeeded.json", "job.repair.succeeded.json"):
+    for name in ("job.succeeded.json", "job.repair.succeeded.json",
+                 "job.repair.no_fix.json"):
         job = sample(name)
         errs = errors_of(schemas["task"], job)
         rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
@@ -159,12 +163,13 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
             rep.check(f"{name} 的 {job['job_type']} 输出符合契约", not errs, "\n".join(errs))
 
     for name in ("job.running.json", "job.failed.env3002.json",
-                 "job.timed_out.exec4002.json"):
+                 "job.timed_out.exec4002.json", "job.failed.repair6001.json"):
         errs = errors_of(schemas["task"], sample(name))
         rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
 
-    errs = errors_of(schemas["artifact"], sample("artifact.json"))
-    rep.check("产物记录符合 artifact.schema.json", not errs, "\n".join(errs))
+    for name in ("artifact.json", "artifact.patch.json"):
+        errs = errors_of(schemas["artifact"], sample(name))
+        rep.check(f"{name} 符合 artifact.schema.json", not errs, "\n".join(errs))
 
     errs = errors_of(schemas["error-report"], sample("error-report.json"))
     rep.check("依赖问题报告符合 error-report.schema.json", not errs, "\n".join(errs))
@@ -343,23 +348,30 @@ def check_06_artifact_digest_is_real(schemas: dict, rep: Report) -> None:
 
     数值样例最容易出的问题是「看起来合理但已过期」——文件改一个字，摘要就失效，
     而样例本身不会报错。这里把它变成一条可执行的检查。
+
+    覆盖两类产物：环境生成服务产出的 Dockerfile，与修复服务产出的补丁。
+    两者都是交接物，交接物的摘要不实，下游的完整性核验就是空转。
     """
     print("\n检查 06：产物样例的摘要与实际文件一致")
 
-    target = ROOT / "fixtures" / "draft" / "docker" / "Dockerfile.ok"
-    art = sample("artifact.json")
+    cases = [
+        ("artifact.json", ROOT / "fixtures" / "draft" / "docker" / "Dockerfile.ok"),
+        ("artifact.patch.json", ROOT / "fixtures" / "mdfixer" / "reference.patch"),
+    ]
 
-    if not target.exists():
-        rep.check("参考 Dockerfile 存在", False, f"未找到：{target}")
-        return
+    for name, target in cases:
+        if not target.exists():
+            rep.check(f"{name} 对应文件存在", False, f"未找到：{target}")
+            continue
 
-    raw = target.read_bytes()
-    rep.check("artifact.sha256 与文件内容一致",
-              art.get("sha256") == hashlib.sha256(raw).hexdigest(),
-              f"样例记录 {art.get('sha256')}\n实际摘要 {hashlib.sha256(raw).hexdigest()}")
-    rep.check("artifact.size_bytes 与文件大小一致",
-              art.get("size_bytes") == len(raw),
-              f"样例记录 {art.get('size_bytes')}，实际 {len(raw)}")
+        art = sample(name)
+        raw = target.read_bytes()
+        rep.check(f"{name} 的 sha256 与文件内容一致",
+                  art.get("sha256") == hashlib.sha256(raw).hexdigest(),
+                  f"样例记录 {art.get('sha256')}\n实际摘要 {hashlib.sha256(raw).hexdigest()}")
+        rep.check(f"{name} 的 size_bytes 与文件大小一致",
+                  art.get("size_bytes") == len(raw),
+                  f"样例记录 {art.get('size_bytes')}，实际 {len(raw)}")
 
 
 def check_07_error_codes_documented(schemas: dict, rep: Report) -> None:
@@ -408,14 +420,25 @@ def check_08_success_invariants(schemas: dict, rep: Report) -> None:
               bool(iters) and last in {"BUILD_OK", "VERIFY_OK"},
               f"最后一轮 outcome = {last!r}")
 
-    repair = sample("job.repair.succeeded.json")
-    ver = (repair.get("output") or {}).get("verification") or {}
-    for flag in ("build_ok", "test_ok", "recheck_ok"):
-        rep.check(f"REPAIR SUCCEEDED 蕴含 verification.{flag} 为真",
-                  ver.get(flag) is True, f"实际 {ver.get(flag)!r}")
+    # REPAIR：采纳了补丁与未采纳任何补丁是两种合法终态，各有各的不变式。
+    # 「全部候选都被拒」不是失败——任务仍是 SUCCEEDED，见 contracts/error-codes.md 第 6 节。
+    for name in ("job.repair.succeeded.json", "job.repair.no_fix.json"):
+        out = (sample(name).get("output") or {})
+        fixed = out.get("fixed") or []
+        rejected = out.get("rejected") or []
+        ver = out.get("verification") or {}
 
-    fixed = (repair.get("output") or {}).get("fixed") or []
-    rep.check("REPAIR 成功任务至少修复一处", bool(fixed), "fixed 为空")
+        if fixed:
+            for flag in ("build_ok", "test_ok", "recheck_ok"):
+                rep.check(f"{name} 采纳了补丁，蕴含 verification.{flag} 为真",
+                          ver.get(flag) is True, f"实际 {ver.get(flag)!r}")
+        else:
+            rep.check(f"{name} 未采纳任何补丁时，必须留下拒绝理由",
+                      bool(rejected),
+                      "fixed 为空且 rejected 也为空：这次修复什么都没说明")
+            rep.check(f"{name} 未采纳任何补丁时，不得给出补丁引用",
+                      "patch_artifact_id" not in out,
+                      f"实际 patch_artifact_id={out.get('patch_artifact_id')!r}")
 
 
 def check_09_repair_consumes_missing_only(schemas: dict, rep: Report) -> None:
@@ -450,6 +473,154 @@ def check_09_repair_consumes_missing_only(schemas: dict, rep: Report) -> None:
               f"实际 {sorted(p for p in provs if p)}")
 
 
+def check_10_repair_failure_boundary(schemas: dict, rep: Report) -> None:
+    """修复的成败边界：什么时候写 rejected[]，什么时候写 job.error。
+
+    这条线最容易画错——「所有候选都被拒绝」与「修复任务失败」看起来是一回事，
+    实际不是：前者是修复服务的结论，后者是修复服务没跑完。混同的后果是调度器
+    把一次带着明确理由的结论当成基础设施故障重跑。
+    """
+    print("\n检查 10：修复的失败边界与错误码")
+
+    stages = set(schemas["task"]["$defs"]["error"]["properties"]["stage"]["enum"])
+    rep.check("task.schema.json 的 error.stage 覆盖 REPAIR 阶段",
+              "REPAIR" in stages, f"实际 {sorted(stages)}")
+
+    doc = (CONTRACTS / "error-codes.md").read_text(encoding="utf-8")
+    for code in ("REPAIR_6001", "REPAIR_6002"):
+        rep.check(f"{code} 已在 error-codes.md 中定义", code in doc, "文档中查无此码")
+
+    job = sample("job.failed.repair6001.json")
+    errs = errors_of(schemas["task"], job)
+    rep.check("job.failed.repair6001.json 符合统一任务模型", not errs, "\n".join(errs))
+    rep.check("修复输入不可用时任务为 FAILED 且 error.stage 为 REPAIR",
+              job.get("status") == "FAILED"
+              and (job.get("error") or {}).get("stage") == "REPAIR",
+              f"实际 status={job.get('status')!r} "
+              f"stage={(job.get('error') or {}).get('stage')!r}")
+
+    # 报告版本 vs 请求版本：schema 只能校验格式，一致性由 mock 的 cross_checks 拦。
+    # 样例必须走「声明 report.commit」这条路，否则这个约束在样例里不可见。
+    req = sample("create-repair-job.request.json")["input"]
+    declared = req["report"].get("commit")
+    rep.check("REPAIR 请求样例声明了 report.commit",
+              bool(declared),
+              "未声明：报告版本只能在执行阶段取回报告后才发现不符")
+    rep.check("REPAIR 请求样例的 report.commit 与 repository.commit 一致",
+              declared == req["repository"]["commit"],
+              f"report.commit={declared!r}\n"
+              f"repository.commit={req['repository']['commit']!r}")
+
+
+def check_11_repair_fixture_is_real(schemas: dict, rep: Report) -> None:
+    """修复的固定输入必须与磁盘上的真实文件对得上。
+
+    报告说「Makefile 第 9 行的 main.o 规则缺 config.h」，那就得真有这么一个文件、
+    真有这么一行、补丁也真能补上它。否则这份「固定输入」只是一段看起来合理的文本，
+    谁也复核不了——而这正是 error-report.schema.json 要求每条发现都带 location 与
+    evidence 的理由。位置与证据既然写了，就该能被验证。
+    """
+    print("\n检查 11：修复固定输入与磁盘文件一致")
+
+    fx = ROOT / "fixtures" / "mdfixer"
+    makefile = fx / "Makefile"
+    if not makefile.exists():
+        rep.check("固定输入项目存在", False, f"未找到：{makefile}")
+        return
+
+    report = load_json(fx / "error-report.json")
+    errs = errors_of(schemas["error-report"], report)
+    rep.check("固定 MD 报告符合 error-report.schema.json", not errs, "\n".join(errs))
+
+    lines = makefile.read_text(encoding="utf-8").splitlines()
+    for finding in report["findings"]:
+        dep = finding["dependency"]
+        loc = finding["location"]
+
+        target_file = fx / loc["file"]
+        rep.check(f"发现 {dep} 的 location.file 指向真实文件", target_file.exists(),
+                  f"未找到 {target_file}")
+
+        line = loc.get("line")
+        ok = False
+        if target_file.exists() and line:
+            idx = line - 1
+            ok = 0 <= idx < len(lines) and lines[idx].startswith(finding["target"] + ":")
+        rep.check(f"发现 {dep} 的 location.line 指向 {finding['target']} 的规则行",
+                  ok,
+                  f"第 {line} 行实际为 {lines[line - 1]!r}"
+                  if line and 0 <= line - 1 < len(lines) else f"无法定位第 {line} 行")
+
+    # 发现的类型必须与源码对得上：MISSING 是说「读取了但没声明」，
+    # REDUNDANT 是说「声明了但从没读取」。两个断言都能在源码里数一遍——
+    # 一条发现若连这两点都对不上，它的 evidence 就是写来好看的。
+    src = "\n".join(
+        p.read_text(encoding="utf-8")
+        for p in sorted(fx.glob("*.c")) + sorted(fx.glob("*.h"))
+    )
+    included = set(re.findall(r'#include\s+"([^"]+)"', src))
+
+    for finding in report["findings"]:
+        dep = finding["dependency"]
+        if finding["type"] == "MISSING":
+            rep.check(f"MISSING {dep} 确实被源码 include（不是凭空的缺失）",
+                      dep in included,
+                      f"源码里没有任何文件 include {dep}")
+        else:
+            rep.check(f"REDUNDANT {dep} 确实没被任何源码 include（不是误判的冗余）",
+                      dep not in included,
+                      f"{dep} 其实被 include 了，不该报为冗余")
+
+    provs = {f["provenance"] for f in report["findings"]}
+    rep.check("固定 MD 报告全部标为人工来源（标准答案不混入工具产出）",
+              bool(provs) and provs <= {"INSTRUCTOR_ORACLE", "MANUAL"},
+              f"实际 {sorted(provs)}")
+
+    req = sample("create-repair-job.request.json")["input"]
+    rep.check("固定 MD 报告的 commit 与 REPAIR 请求样例一致",
+              report["repository"]["commit"] == req["repository"]["commit"],
+              f"报告 {report['repository']['commit']}\n请求 {req['repository']['commit']}")
+    rep.check("REPAIR 请求样例的 project_subdir 指向固定输入目录",
+              req.get("project_subdir") == "fixtures/mdfixer",
+              f"实际 {req.get('project_subdir')!r}")
+
+    # 参考补丁：模拟最小应用，验证两件事——补丁改动行确实存在于 Makefile，
+    # 以及应用之后缺失依赖被补上、冗余声明原样保留。
+    patch_text = (fx / "reference.patch").read_text(encoding="utf-8")
+    removed = [l[1:] for l in patch_text.splitlines()
+               if l.startswith("-") and not l.startswith("---")]
+    added = [l[1:] for l in patch_text.splitlines()
+             if l.startswith("+") and not l.startswith("+++")]
+
+    before = makefile.read_text(encoding="utf-8")
+    after = before
+    applicable = bool(removed) and len(removed) == len(added)
+    for old, new in zip(removed, added):
+        if old not in after:
+            applicable = False
+            break
+        after = after.replace(old, new, 1)
+
+    rep.check("参考补丁的改动行在 Makefile 中原样存在（可干净应用）", applicable,
+              "补丁与 Makefile 不匹配，git apply 会失败")
+
+    rule_after = [l for l in after.splitlines() if l.startswith("main.o:")]
+    for finding in report["findings"]:
+        dep = finding["dependency"]
+        if finding["type"] == "MISSING":
+            rep.check(f"应用参考补丁后，main.o 规则已声明 {dep}",
+                      any(dep in l for l in rule_after),
+                      f"实际规则：{rule_after}")
+        else:
+            rep.check(f"应用参考补丁后，冗余声明 {dep} 原样保留",
+                      any(dep in l for l in rule_after),
+                      f"修复只针对缺失依赖，不得改动 {dep}。实际规则：{rule_after}")
+
+    art = sample("artifact.patch.json")
+    rep.check("PATCH 产物样例的 type 为 PATCH", art.get("type") == "PATCH",
+              f"实际 {art.get('type')!r}")
+
+
 # -------------------------------------------------------------------- main
 
 def main() -> int:
@@ -470,6 +641,8 @@ def main() -> int:
     check_07_error_codes_documented(schemas, rep)
     check_08_success_invariants(schemas, rep)
     check_09_repair_consumes_missing_only(schemas, rep)
+    check_10_repair_failure_boundary(schemas, rep)
+    check_11_repair_fixture_is_real(schemas, rep)
     return rep.summary()
 
 

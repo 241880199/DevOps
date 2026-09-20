@@ -17,7 +17,7 @@
         "commit": {
           "type": "string",
           "pattern": "^[0-9a-f]{7,40}$",
-          "description": "完整 commit SHA。修复产出的补丁必须能干净地应用在这个版本上。"
+          "description": "完整 commit SHA。修复产出的补丁必须能干净地应用在这个版本上，且报告须属于同一版本——两者不一致时任务以 REPAIR_6001 失败。"
         }
       }
     },
@@ -39,8 +39,19 @@
         "finding_type": {
           "const": "MISSING",
           "description": "本次修复的发现类型，固定为 MISSING。修复只针对缺失依赖，请求修复冗余依赖会被拒绝。"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "报告所依据的源码版本 SHA。填了，服务端在**受理时**就能与本请求的 repository.commit 比对，不一致直接以 400 拒绝（error.code = REPAIR_6001），无须先取回报告产物；不填，则由服务端取回报告后校验其 repository.commit，不一致时任务以 REPAIR_6001 失败。建议填——报告属于哪个源码版本是修复成立的前提，不该等到执行阶段才发现不符。"
         }
       }
+    },
+    "project_subdir": {
+      "type": "string",
+      "description": "项目根目录相对仓库根的路径，默认 \".\"。与 job-input-draft 的同名字段一致：报告里的 location.file 与 makefile_path 都相对这个根解析。缺了它，报告中的路径在非仓库根项目上无法定位。",
+      "default": ".",
+      "examples": ["fixtures/mdfixer", "."]
     },
     "makefile_path": {
       "type": "string",

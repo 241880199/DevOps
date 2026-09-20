@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "job_id": "job-repair02",
+  "trace_id": "trace-repair-0002",
+  "job_type": "REPAIR",
+  "status": "SUCCEEDED",
+  "execution": {
+    "created_at": "2026-09-20T11:20:00Z",
+    "started_at": "2026-09-20T11:20:01Z",
+    "finished_at": "2026-09-20T11:21:12Z",
+    "attempt": 1
+  },
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+    },
+    "report": {
+      "artifact_id": "md-report-001",
+      "artifact_uri": "artifact://b03/job-oracle-mdfixer01/error-report.json",
+      "finding_type": "MISSING",
+      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+    },
+    "project_subdir": "fixtures/mdfixer",
+    "makefile_path": "Makefile",
+    "environment": {
+      "image_ref": "mdfixer-fixture:1.0",
+      "build_command": "make",
+      "verify_command": "./app",
+      "recheck_command": "make clean && make"
+    },
+    "limits": {
+      "max_iterations": 3,
+      "timeout_seconds": 300
+    }
+  },
+  "output": {
+    "resolved_commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+    "fixed": [],
+    "rejected": [
+      {
+        "target": "main.o",
+        "dependency": "config.h",
+        "reason": "候选改用通配符宏 $(wildcard *.h) 组织依赖，虽补上了 config.h，但把 unused.h 之外的项目头文件一并引入，复核时报出新的冗余声明，复检未通过"
+      },
+      {
+        "target": "main.o",
+        "dependency": "feature.h",
+        "reason": "候选改为在 main.o 规则中直接追加依赖，但只补了 config.h 一项；复检仍报出 feature.h 缺失，未消除原问题"
+      }
+    ],
+    "declaration_style_note": "Makefile 使用原子依赖列表，未经宏组织。两次候选分别尝试了宏组织与直接追加：前者引入新问题，后者未补全，均未采纳。",
+    "verification": {
+      "build_ok": true,
+      "test_ok": true,
+      "recheck_ok": false,
+      "recheck_stdout": "make clean && make: 仍报告 MISSING main.o -> feature.h\n"
+    }
+  }
+}

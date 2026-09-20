@@ -4,11 +4,11 @@
     "url": "https://github.com/241880199/DevOps",
     "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
   },
-  "configuration_id": "cc-MODE0",
+  "configuration_id": "cc-O2",
   "produced_by": {
-    "detector": "BuildChecker",
-    "job_id": "job-full01",
-    "mode": "FULL"
+    "detector": "INSTRUCTOR_ORACLE",
+    "job_id": "job-oracle-mdfixer01",
+    "mode": "MANUAL"
   },
   "generated_at": "2026-09-20T09:40:00Z",
   "summary": {
@@ -21,16 +21,16 @@
       "target": "main.o",
       "dependency": "config.h",
       "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
-      "detector": "BuildChecker",
-      "provenance": "TOOL",
+      "detector": "INSTRUCTOR_ORACLE",
+      "provenance": "INSTRUCTOR_ORACLE",
       "location": {
         "file": "Makefile",
         "line": 9,
         "detail": "main.o 的依赖列表为 main.c unused.h，未含 config.h"
       },
       "evidence": {
-        "kind": "FILE_ACCESS",
-        "detail": "main.o 构建期间读取了 config.h，但 Makefile 第 9 行未声明该依赖"
+        "kind": "DECLARATION",
+        "detail": "人工核对：main.c 中 #include \"config.h\"，Makefile 第 9 行未声明该依赖。该条为人工标准答案，不计入工具准确率统计"
       }
     },
     {
@@ -47,7 +47,7 @@
       },
       "evidence": {
         "kind": "DECLARATION",
-        "detail": "人工标注：main.c 中 #include \"feature.h\"，Makefile 第 9 行未声明。该条不计入工具准确率统计"
+        "detail": "人工核对：main.c 中 #include \"feature.h\"，Makefile 第 9 行未声明该依赖。该条为人工标准答案，不计入工具准确率统计"
       }
     },
     {
@@ -55,16 +55,16 @@
       "target": "main.o",
       "dependency": "unused.h",
       "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
-      "detector": "BuildChecker",
-      "provenance": "TOOL",
+      "detector": "INSTRUCTOR_ORACLE",
+      "provenance": "INSTRUCTOR_ORACLE",
       "location": {
         "file": "Makefile",
         "line": 9,
         "detail": "main.o 的依赖列表声明了 unused.h"
       },
       "evidence": {
-        "kind": "FILE_ACCESS",
-        "detail": "main.o 的构建过程中未出现对 unused.h 的读取记录"
+        "kind": "DECLARATION",
+        "detail": "人工核对：main.c、config.h、feature.h 均未 include unused.h（可用 grep -rn 'unused.h' *.c *.h 复核）。该条为人工标准答案，不计入工具准确率统计"
       }
     }
   ]

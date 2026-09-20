@@ -8,14 +8,16 @@
     },
     "report": {
       "artifact_id": "md-report-001",
-      "artifact_uri": "artifact://detect/job-full01/error-report.json",
-      "finding_type": "MISSING"
+      "artifact_uri": "artifact://b03/job-oracle-mdfixer01/error-report.json",
+      "finding_type": "MISSING",
+      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
     },
+    "project_subdir": "fixtures/mdfixer",
     "makefile_path": "Makefile",
     "environment": {
-      "image_ref": "draft-fixture-ok:1.0",
+      "image_ref": "mdfixer-fixture:1.0",
       "build_command": "make",
-      "verify_command": "./hello",
+      "verify_command": "./app",
       "recheck_command": "make clean && make"
     },
     "limits": {

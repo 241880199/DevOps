@@ -1,0 +1,11 @@
+{
+  "artifact_id": "patch-0001",
+  "type": "PATCH",
+  "uri": "artifact://b03/job-repair01/fix.patch",
+  "media_type": "text/x-diff",
+  "producer_job_id": "job-repair01",
+  "sha256": "b6e14fa1c8d34d93614a279db5c0e36515bdc113fb1cc403c83505017d8fd561",
+  "size_bytes": 199,
+  "created_at": "2026-09-20T11:01:47Z",
+  "source_commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+}

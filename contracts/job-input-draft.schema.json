@@ -47,6 +47,12 @@
           "type": "string",
           "description": "第二层：期望的标准输出（用于自动比对）。缺失时只校验退出码。",
           "examples": ["hello draft"]
+        },
+        "project_subdir": {
+          "type": "string",
+          "description": "项目根目录相对仓库根的路径，默认 \".\"。构建与验证命令都在该目录下执行。缺了它，仓库根不是构建根的项目（本仓库自己就是——可构建的样例在 fixtures/draft/）无法被正确容器化：DRAFT 只会在仓库根跑 make，然后以「构建不通过」收场，而实际原因只是找错了目录。",
+          "default": ".",
+          "examples": ["fixtures/draft", "."]
         }
       }
     },

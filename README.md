@@ -26,20 +26,27 @@ contracts/                            接口契约（核心）
   error-report.schema.json            依赖问题报告
   artifact.schema.json                产物记录
   error-codes.md                      错误码与状态语义
-  samples/                            12 个请求 / 响应 / 错误 / 产物样例
+  samples/                            15 个请求 / 响应 / 错误 / 产物样例
 
 scripts/
-  validate.py                         契约校验，77 项检查
+  validate.py                         契约校验，110 项检查
   mock_server.py                      四类任务的最小可跑实现
 
-fixtures/draft/                       DRAFT 的固定输入样例（最小 GNU Make C 项目）
-  main.c  Makefile  README.md
-  docker/  Dockerfile.ok  Dockerfile.broken
+fixtures/
+  draft/                              DRAFT 的固定输入样例（最小 GNU Make C 项目）
+    main.c  Makefile  README.md
+    docker/  Dockerfile.ok  Dockerfile.broken
+  mdfixer/                            REPAIR 的固定输入样例
+    main.c  config.h  feature.h  unused.h  Makefile  README.md
+    error-report.json                 人工固定报告（每条发现都指向磁盘上真实的规则行）
+    reference.patch                   参考修复补丁
+    docker/  Dockerfile.reference
 
 docs/
   接口说明.md                          ★ 面向下游消费方的对接文档
-  ADR/                                架构决策记录 001–005
-  AI_USAGE.md                         设计过程与 AI 使用记录
+  ADR/                                架构决策记录 001–007
+  AI_USAGE.md                         设计过程与 AI 使用记录（分两轮）
+  配对组接口交换记录.md               与 A03 的三轮接口交换（含待确认项）
   backlog.md                          进展与待办
 ```
 
@@ -52,9 +59,9 @@ python -m pip install jsonschema
 python scripts/validate.py
 ```
 
-预期：`全部通过：77 / 77 项检查`，退出码 0。
+预期：`全部通过：110 / 110 项检查`，退出码 0。
 
-校验覆盖：四类任务的请求与响应、未知 `job_type` 被拒绝、各类型必填输入缺失被拒绝、成功与失败语义互斥、未结束的任务不携带结果、跨 schema 枚举与覆盖一致性、产物摘要与文件内容一致、错误码与文档一致、成功任务的输出不变式、修复只消费缺失依赖。
+校验覆盖：四类任务的请求与响应、未知 `job_type` 被拒绝、各类型必填输入缺失被拒绝、成功与失败语义互斥、未结束的任务不携带结果、跨 schema 枚举与覆盖一致性、产物摘要与文件内容一致、错误码与文档一致、成功任务的输出不变式、修复只消费缺失依赖、修复失败边界（`rejected[]` vs `job.error`）、修复固定输入与磁盘文件一致。
 
 ### 跑通任务生命周期
 
@@ -85,6 +92,10 @@ docker run   --rm draft-fixture-ok      # 预期输出 hello draft
 
 docker build -f fixtures/draft/docker/Dockerfile.broken -t draft-fixture-broken fixtures/draft
 # 预期失败，日志含 make: not found
+
+# 修复样例的环境
+docker build -f fixtures/mdfixer/docker/Dockerfile.reference -t mdfixer-fixture fixtures/mdfixer
+docker run   --rm mdfixer-fixture       # 预期输出 12
 ```
 
 ## 关键约定
@@ -99,7 +110,12 @@ docker build -f fixtures/draft/docker/Dockerfile.broken -t draft-fixture-broken 
 
 **依赖问题报告必须带位置与证据，并显式区分工具与人工来源。** 光有 `(target, dependency)` 无法复核；靠解析检测器名称区分人工答案会让统计静默失真。理由见 `docs/ADR/ADR-005`。
 
+**修复的成功判据是「给出判断」，不是「产出补丁」。** 全部候选都被拒绝时任务仍是 `SUCCEEDED`（`fixed: []` + `rejected` 非空）——判成 `FAILED` 的话，那些拒绝理由就没有地方存放了。理由见 `docs/ADR/ADR-006`。
+
+**报告必须属于当前源码版本。** 修复请求用 `report.commit` 把版本校验前移到受理阶段，不一致立即拒绝，不白跑一次调度。理由见 `docs/ADR/ADR-006`。
+
 下游对接请看 **`docs/接口说明.md`**，其中含字段用途、联调检查清单与完整走查。
+与 A03 的接口交换记录见 **`docs/配对组接口交换记录.md`**。
 
 ## 运行环境
 
