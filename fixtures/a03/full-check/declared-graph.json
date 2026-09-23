@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "repository": {
+    "url": "https://github.com/241880199/DevOps",
+    "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
+  },
+  "configuration_id": "cc-MODE0",
+  "graph_kind": "DECLARED",
+  "generated_at": "2026-09-23T09:00:00Z",
+  "nodes": [
+    { "id": "hello", "kind": "TARGET", "path": "fixtures/draft/hello" },
+    { "id": "main.c", "kind": "SOURCE", "path": "fixtures/draft/main.c" }
+  ],
+  "edges": [
+    {
+      "target": "hello",
+      "dependency": "main.c",
+      "relation": "DECLARES",
+      "evidence": "fixtures/draft/Makefile 的 hello 目标声明 main.c 为依赖"
+    }
+  ]
+}

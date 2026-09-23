@@ -2,14 +2,14 @@
   "job_type": "INCREMENTAL_CHECK",
   "trace_id": "trace-incr-0001",
   "input": {
-    "base_commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+    "base_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
     "repository": {
       "url": "https://github.com/241880199/DevOps",
-      "commit": "d47a1528a1b2c3d4e5f60718293a4b5c6d7e8f90"
+      "commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
     },
     "baseline": {
       "actual_graph_uri": "artifact://detect/job-full01/actual-graph.json",
-      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
       "configuration_id": "cc-MODE0"
     },
     "environment": {
@@ -19,7 +19,7 @@
     "build": {
       "incremental_command": "make",
       "clean_command": "make clean && make",
-      "project_root": "/work"
+      "project_root": "/work/fixtures/draft"
     },
     "limits": {
       "timeout_seconds": 900

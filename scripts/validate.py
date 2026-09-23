@@ -15,6 +15,7 @@
   09  修复任务只消费缺失依赖报告
   10  修复的失败边界：rejected[] 与 job.error 各司其职
   11  修复的固定输入与磁盘上的真实文件对得上
+  12  A03 检测输出、可读取产物、真实提交及基线祖先关系一致
 
 用法（在仓库根目录执行）：
     python scripts/validate.py
@@ -28,12 +29,22 @@ import copy
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "contracts"
 SAMPLES = CONTRACTS / "samples"
+A03_FIXTURES = ROOT / "fixtures" / "a03"
+
+A03_ARTIFACTS = (
+    ("artifact.actual-graph-001.json", A03_FIXTURES / "full-check" / "actual-graph.json", "dependency-graph"),
+    ("artifact.declared-graph-001.json", A03_FIXTURES / "full-check" / "declared-graph.json", "dependency-graph"),
+    ("artifact.error-report-001.json", A03_FIXTURES / "full-check" / "error-report.json", "error-report"),
+    ("artifact.actual-graph-002.json", A03_FIXTURES / "incremental-check" / "actual-graph.json", "dependency-graph"),
+    ("artifact.error-report-002.json", A03_FIXTURES / "incremental-check" / "error-report.json", "error-report"),
+)
 
 try:
     from jsonschema import Draft202012Validator
@@ -55,6 +66,8 @@ INPUT_SCHEMA = {
 # job_type -> 专有输出 schema（有定义的类型）
 OUTPUT_SCHEMA = {
     "DRAFT": "job-output-draft",
+    "FULL_CHECK": "job-output-full-check",
+    "INCREMENTAL_CHECK": "job-output-incremental-check",
     "REPAIR": "job-output-repair",
 }
 
@@ -152,8 +165,9 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
     )
 
     # 响应样例：按 job_type 校验专有输出
-    for name in ("job.succeeded.json", "job.repair.succeeded.json",
-                 "job.repair.no_fix.json"):
+    for name in ("job.succeeded.json", "job.full-check.succeeded.json",
+                 "job.incremental-check.succeeded.json",
+                 "job.repair.succeeded.json", "job.repair.no_fix.json"):
         job = sample(name)
         errs = errors_of(schemas["task"], job)
         rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
@@ -163,11 +177,13 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
             rep.check(f"{name} 的 {job['job_type']} 输出符合契约", not errs, "\n".join(errs))
 
     for name in ("job.running.json", "job.failed.env3002.json",
+                 "job.failed.analysis5001.json",
                  "job.timed_out.exec4002.json", "job.failed.repair6001.json"):
         errs = errors_of(schemas["task"], sample(name))
         rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
 
-    for name in ("artifact.json", "artifact.patch.json"):
+    artifact_names = ["artifact.json", "artifact.patch.json"] + [item[0] for item in A03_ARTIFACTS]
+    for name in artifact_names:
         errs = errors_of(schemas["artifact"], sample(name))
         rep.check(f"{name} 符合 artifact.schema.json", not errs, "\n".join(errs))
 
@@ -334,6 +350,17 @@ def check_05_consistency(schemas: dict, rep: Report) -> None:
 
     for job_type, schema_name in INPUT_SCHEMA.items():
         rep.check(f"{job_type} 的输入契约 {schema_name}.schema.json 已加载",
+                  schema_name in schemas,
+                  f"未找到 {schema_name}.schema.json")
+
+    missing_out = task_types - set(OUTPUT_SCHEMA)
+    extra_out = set(OUTPUT_SCHEMA) - task_types
+    rep.check("每个 job_type 都有对应的输出契约",
+              not missing_out and not extra_out,
+              f"缺契约：{sorted(missing_out)}\n多余映射：{sorted(extra_out)}")
+
+    for job_type, schema_name in OUTPUT_SCHEMA.items():
+        rep.check(f"{job_type} 的输出契约 {schema_name}.schema.json 已加载",
                   schema_name in schemas,
                   f"未找到 {schema_name}.schema.json")
 
@@ -621,6 +648,97 @@ def check_11_repair_fixture_is_real(schemas: dict, rep: Report) -> None:
               f"实际 {art.get('type')!r}")
 
 
+def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
+    """A03 的检测输出样例必须符合专用契约和版本约束。"""
+    print("\n检查 12：A03 检测输出契约")
+
+    full = sample("job.full-check.succeeded.json")
+    incr = sample("job.incremental-check.succeeded.json")
+    for job in (full, incr):
+        schema_name = OUTPUT_SCHEMA[job["job_type"]]
+        errs = errors_of(schemas[schema_name], job["output"])
+        rep.check(f"{job['job_type']} 成功输出符合专有契约", not errs, "\n".join(errs))
+
+    failed = sample("job.failed.analysis5001.json")
+    rep.check("ANALYSIS_5001 样例是 A03 检测任务的分析阶段失败",
+              failed.get("job_type") in {"FULL_CHECK", "INCREMENTAL_CHECK"}
+              and failed.get("status") == "FAILED"
+              and failed.get("error", {}).get("code") == "ANALYSIS_5001"
+              and failed.get("error", {}).get("stage") == "ANALYSIS"
+              and "output" not in failed,
+              "分析器失败必须是 FAILED/ANALYSIS_5001，且不得携带 output")
+
+    rep.check("增量输出的 base_commit 与输入一致",
+              incr["output"]["base_commit"] == incr["input"]["base_commit"],
+              "输出不能把基线归属到另一提交")
+    rep.check("增量输出的 configuration_id 与输入环境一致",
+              incr["output"]["configuration_id"] == incr["input"]["environment"]["configuration_id"],
+              "配置不同则结果不可比较")
+
+    rep.check("全量输出的 resolved_commit 与输入一致",
+              full["output"]["resolved_commit"] == full["input"]["repository"]["commit"],
+              "全量产物不能归属到另一提交")
+    rep.check("增量输出的 resolved_commit 与当前输入一致",
+              incr["output"]["resolved_commit"] == incr["input"]["repository"]["commit"],
+              "增量产物不能归属到另一提交")
+
+    records = {}
+    for record_name, content_path, content_schema in A03_ARTIFACTS:
+        record = sample(record_name)
+        content = load_json(content_path)
+        records[record["artifact_id"]] = record
+
+        errs = errors_of(schemas[content_schema], content)
+        rep.check(f"{content_path.relative_to(ROOT)} 符合 {content_schema} 契约",
+                  not errs, "\n".join(errs))
+
+        raw = content_path.read_bytes()
+        actual_digest = hashlib.sha256(raw).hexdigest()
+        rep.check(f"{record_name} 的摘要和大小与实物一致",
+                  record.get("sha256") == actual_digest and record.get("size_bytes") == len(raw),
+                  f"记录 sha256={record.get('sha256')} size={record.get('size_bytes')}\n"
+                  f"实物 sha256={actual_digest} size={len(raw)}")
+        rep.check(f"{record_name} 的提交与实物内容一致",
+                  record.get("source_commit") == content["repository"]["commit"],
+                  "artifact source_commit 必须等于图或报告的 repository.commit")
+
+    full_ids = {
+        full["output"]["actual_graph_artifact_id"],
+        full["output"]["declared_graph_artifact_id"],
+        full["output"]["error_report_artifact_id"],
+    }
+    incr_ids = {
+        incr["output"]["actual_graph_artifact_id"],
+        incr["output"]["error_report_artifact_id"],
+    }
+    rep.check("FULL_CHECK 输出的三个 artifact ID 都有可读取记录",
+              full_ids <= records.keys(), f"缺少 {sorted(full_ids - records.keys())}")
+    rep.check("INCREMENTAL_CHECK 输出的两个 artifact ID 都有可读取记录",
+              incr_ids <= records.keys(), f"缺少 {sorted(incr_ids - records.keys())}")
+    rep.check("增量输入复用 FULL_CHECK 的实际图 URI",
+              incr["input"]["baseline"]["actual_graph_uri"] ==
+              records[full["output"]["actual_graph_artifact_id"]]["uri"],
+              "baseline.actual_graph_uri 必须指向前一次全量检测的实际图")
+
+    base_commit = full["output"]["resolved_commit"]
+    current_commit = incr["output"]["resolved_commit"]
+    for label, commit in (("基线", base_commit), ("当前", current_commit)):
+        proc = subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        rep.check(f"A03 {label} SHA 是仓库中真实存在的提交",
+                  len(commit) == 40 and proc.returncode == 0,
+                  f"无法解析提交 {commit}")
+
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base_commit, current_commit],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    rep.check("A03 增量基线是当前提交的祖先",
+              ancestry.returncode == 0,
+              f"{base_commit} 不是 {current_commit} 的祖先")
+
 # -------------------------------------------------------------------- main
 
 def main() -> int:
@@ -643,6 +761,7 @@ def main() -> int:
     check_09_repair_consumes_missing_only(schemas, rep)
     check_10_repair_failure_boundary(schemas, rep)
     check_11_repair_fixture_is_real(schemas, rep)
+    check_12_a03_detection_outputs(schemas, rep)
     return rep.summary()
 
 

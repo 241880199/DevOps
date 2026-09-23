@@ -62,7 +62,7 @@
 | --- | --- |
 | `ENV_3002` | `contracts/samples/job.failed.env3002.json` |
 | `EXEC_4002` | `contracts/samples/job.timed_out.exec4002.json` |
-| `ANALYSIS_5001` | 暂无（本服务不产生该码） |
+| `ANALYSIS_5001` | `contracts/samples/job.failed.analysis5001.json` |
 | `REPAIR_6001` | `contracts/samples/job.failed.repair6001.json` |
 | `REPAIR_6002` | 暂无（需环境缺少补丁工具才能构造，当前 mock 不覆盖） |
 

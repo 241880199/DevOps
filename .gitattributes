@@ -1,0 +1,5 @@
+# A03 artifact samples use byte-for-byte SHA-256 records; keep their content stable across hosts.
+fixtures/a03/**/*.json text eol=lf
+contracts/samples/artifact.actual-graph-*.json text eol=lf
+contracts/samples/artifact.declared-graph-*.json text eol=lf
+contracts/samples/artifact.error-report-*.json text eol=lf

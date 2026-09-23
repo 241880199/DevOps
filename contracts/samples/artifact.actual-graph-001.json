@@ -1,0 +1,11 @@
+{
+  "artifact_id": "actual-graph-001",
+  "type": "ACTUAL_GRAPH",
+  "uri": "artifact://a03/job-full01/actual-graph.json",
+  "media_type": "application/json",
+  "producer_job_id": "job-full01",
+  "sha256": "d8ed35ee07d86ba4643c9e3955751a1bb6574467ba20456904766871c7004d16",
+  "size_bytes": 625,
+  "created_at": "2026-09-23T09:00:00Z",
+  "source_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
+}

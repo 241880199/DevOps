@@ -11,8 +11,8 @@
 | 操作 | job_type | 端点 | 状态 |
 | --- | --- | --- | --- |
 | 生成构建环境 | `DRAFT` | `POST /v1/dockerfile-jobs` | 已定稿 |
-| 全量依赖检测 | `FULL_CHECK` | `POST /v1/full-check-jobs` | 待检测方确认 |
-| 增量依赖检测 | `INCREMENTAL_CHECK` | `POST /v1/incremental-check-jobs` | 待检测方确认 |
+| 全量依赖检测 | `FULL_CHECK` | `POST /v1/full-check-jobs` | A03 已补齐并确认契约 |
+| 增量依赖检测 | `INCREMENTAL_CHECK` | `POST /v1/incremental-check-jobs` | A03 已补齐并确认契约 |
 | 依赖修复 | `REPAIR` | `POST /v1/repair-jobs` | 已定稿 |
 
 ## 目录结构
@@ -22,17 +22,19 @@ contracts/                            接口契约（核心）
   task.schema.json                    统一任务模型
   job-create-request.schema.json      创建请求
   job-input-{draft,full-check,incremental-check,repair}.schema.json
-  job-output-{draft,repair}.schema.json
+  job-output-{draft,full-check,incremental-check,repair}.schema.json
+  dependency-graph.schema.json         检测服务交换的依赖图
   error-report.schema.json            依赖问题报告
   artifact.schema.json                产物记录
   error-codes.md                      错误码与状态语义
-  samples/                            15 个请求 / 响应 / 错误 / 产物样例
+  samples/                            请求 / 响应 / 错误 / 产物样例
 
 scripts/
-  validate.py                         契约校验，110 项检查
-  mock_server.py                      四类任务的最小可跑实现
+  validate.py                         契约校验，退出码 0 表示全部通过
+  mock_server.py                      统一受理与生命周期 mock；DRAFT/REPAIR 含固定模拟输出
 
 fixtures/
+  a03/                                FULL_CHECK / INCREMENTAL_CHECK 的人工契约样例产物
   draft/                              DRAFT 的固定输入样例（最小 GNU Make C 项目）
     main.c  Makefile  README.md
     docker/  Dockerfile.ok  Dockerfile.broken
@@ -44,10 +46,11 @@ fixtures/
 
 docs/
   接口说明.md                          ★ 面向下游消费方的对接文档
-  ADR/                                架构决策记录 001–007
-  AI_USAGE.md                         设计过程与 AI 使用记录（分两轮）
+  ADR/                                架构决策记录 001–009
+  AI_USAGE.md                         设计过程与 AI 使用记录（分三轮）
   配对组接口交换记录.md               与 A03 的三轮接口交换（含待确认项）
   backlog.md                          进展与待办
+  A03_TASKS.md                        A03 的 E2 验收清单
 ```
 
 ## 快速开始
@@ -59,9 +62,9 @@ python -m pip install jsonschema
 python scripts/validate.py
 ```
 
-预期：`全部通过：110 / 110 项检查`，退出码 0。
+预期：全部检查通过，退出码 0。实际检查数量会随契约和基线扩展而增加。
 
-校验覆盖：四类任务的请求与响应、未知 `job_type` 被拒绝、各类型必填输入缺失被拒绝、成功与失败语义互斥、未结束的任务不携带结果、跨 schema 枚举与覆盖一致性、产物摘要与文件内容一致、错误码与文档一致、成功任务的输出不变式、修复只消费缺失依赖、修复失败边界（`rejected[]` vs `job.error`）、修复固定输入与磁盘文件一致。
+校验覆盖：四类任务的请求与响应、未知 `job_type` 被拒绝、各类型必填输入缺失被拒绝、成功与失败语义互斥、未结束的任务不携带结果、跨 schema 枚举与覆盖一致性、产物摘要与文件内容一致、错误码与文档一致、成功任务的输出不变式、修复只消费缺失依赖、修复失败边界（`rejected[]` vs `job.error`）、修复固定输入与磁盘文件一致，以及 A03 检测产物的真实提交、摘要和基线祖先关系。
 
 ### 跑通任务生命周期
 
@@ -80,7 +83,7 @@ curl -s http://127.0.0.1:8080/v1/jobs/<job_id>
 curl -s http://127.0.0.1:8080/v1/artifacts/<artifact_id>
 ```
 
-`DRAFT` 与 `REPAIR` 有完整的模拟执行路径；`FULL_CHECK` 与 `INCREMENTAL_CHECK` 由其他服务负责，这里只验证受理与状态迁移。
+四类任务均有符合专用输出 Schema 的模拟执行路径。`FULL_CHECK` 与 `INCREMENTAL_CHECK` 会动态登记可下载的图和报告，但不会运行真实检测器；空图、空报告仅用于验证契约和交接流程。
 
 ### 构建样例项目
 

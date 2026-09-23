@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "job_id": "job-full02",
+  "trace_id": "trace-full-0002",
+  "job_type": "FULL_CHECK",
+  "status": "FAILED",
+  "execution": {
+    "created_at": "2026-09-23T10:00:00Z",
+    "started_at": "2026-09-23T10:00:02Z",
+    "finished_at": "2026-09-23T10:00:19Z",
+    "attempt": 1
+  },
+  "input": {
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
+    },
+    "environment": {
+      "image_ref": "draft-fixture-ok:1.0",
+      "configuration_id": "cc-MODE0"
+    },
+    "build": {
+      "clean_command": "make clean && make",
+      "project_root": "/work/fixtures/draft"
+    },
+    "limits": { "timeout_seconds": 900 }
+  },
+  "error": {
+    "code": "ANALYSIS_5001",
+    "stage": "ANALYSIS",
+    "message": "依赖分析器异常退出，未能生成可信结果。",
+    "detail": "BuildChecker 进程退出码 139；未生成依赖图或错误报告。",
+    "at": "2026-09-23T10:00:19Z"
+  }
+}

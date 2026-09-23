@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/dependency-graph.schema.json",
+  "title": "DependencyGraph",
+  "description": "检测服务交换的依赖图。图必须绑定源码提交和构建配置，边记录目标与依赖之间的声明或实际读取关系。",
+  "type": "object",
+  "required": ["schema_version", "repository", "configuration_id", "graph_kind", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "repository": {
+      "type": "object",
+      "required": ["url", "commit"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+      }
+    },
+    "configuration_id": { "type": "string", "minLength": 1 },
+    "graph_kind": { "type": "string", "enum": ["ACTUAL", "DECLARED"] },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "enum": ["TARGET", "SOURCE", "HEADER", "GENERATED", "OTHER"] },
+          "path": { "type": "string" }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target", "dependency", "relation"],
+        "additionalProperties": false,
+        "properties": {
+          "target": { "type": "string", "minLength": 1 },
+          "dependency": { "type": "string", "minLength": 1 },
+          "relation": { "type": "string", "enum": ["READS", "DECLARES"] },
+          "evidence": { "type": "string" }
+        }
+      }
+    }
+  }
+}

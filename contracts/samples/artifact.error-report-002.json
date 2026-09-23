@@ -1,0 +1,11 @@
+{
+  "artifact_id": "error-report-002",
+  "type": "ERROR_REPORT",
+  "uri": "artifact://a03/job-incr01/error-report.json",
+  "media_type": "application/json",
+  "producer_job_id": "job-incr01",
+  "sha256": "76fd93d88a5289a90878383868e30fd270b3e6b5581f5d67dd7265ca4d9ca091",
+  "size_bytes": 413,
+  "created_at": "2026-09-23T09:05:00Z",
+  "source_commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
+}

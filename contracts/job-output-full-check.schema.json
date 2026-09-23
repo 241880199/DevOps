@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/job-output-full-check.schema.json",
+  "title": "FullCheckJobOutput",
+  "description": "BuildChecker 全量检测输出。大文件以 artifact 引用交付，摘要字段用于快速判断结果规模。",
+  "type": "object",
+  "required": ["resolved_commit", "configuration_id", "actual_graph_artifact_id", "declared_graph_artifact_id", "error_report_artifact_id", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "resolved_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "configuration_id": { "type": "string", "minLength": 1 },
+    "actual_graph_artifact_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "declared_graph_artifact_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "error_report_artifact_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "summary": {
+      "type": "object",
+      "required": ["missing", "redundant"],
+      "additionalProperties": false,
+      "properties": {
+        "missing": { "type": "integer", "minimum": 0 },
+        "redundant": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/job-output-incremental-check.schema.json",
+  "title": "IncrementalCheckJobOutput",
+  "description": "EChecker 增量检测输出。除当前完整发现外，明确列出新增和已消除发现，并返回下一次可复用的实际依赖图。",
+  "type": "object",
+  "required": ["base_commit", "resolved_commit", "configuration_id", "actual_graph_artifact_id", "error_report_artifact_id", "changes"],
+  "additionalProperties": false,
+  "properties": {
+    "base_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "resolved_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "configuration_id": { "type": "string", "minLength": 1 },
+    "actual_graph_artifact_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "error_report_artifact_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "changes": {
+      "type": "object",
+      "required": ["added", "resolved"],
+      "additionalProperties": false,
+      "properties": {
+        "added": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "resolved": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+      }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["type", "target", "dependency", "commit", "detector", "provenance", "location", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["MISSING", "REDUNDANT"] },
+        "target": { "type": "string", "minLength": 1 },
+        "dependency": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "detector": { "type": "string", "minLength": 1 },
+        "provenance": { "type": "string", "enum": ["TOOL", "INSTRUCTOR_ORACLE", "MANUAL"] },
+        "location": {
+          "type": "object",
+          "required": ["file"],
+          "additionalProperties": false,
+          "properties": {
+            "file": { "type": "string", "minLength": 1 },
+            "line": { "type": "integer", "minimum": 1 },
+            "detail": { "type": "string" }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "required": ["kind", "detail"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "type": "string", "enum": ["DECLARATION", "FILE_ACCESS", "PROCESS", "BUILD_OUTPUT"] },
+            "detail": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

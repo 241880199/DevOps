@@ -1,0 +1,11 @@
+{
+  "artifact_id": "declared-graph-001",
+  "type": "DECLARED_GRAPH",
+  "uri": "artifact://a03/job-full01/declared-graph.json",
+  "media_type": "application/json",
+  "producer_job_id": "job-full01",
+  "sha256": "c19dce8c290f6b587cd4e10584ba989b37b74bbb7b8181537d4ffc9857194623",
+  "size_bytes": 628,
+  "created_at": "2026-09-23T09:00:00Z",
+  "source_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
+}

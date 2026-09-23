@@ -4,7 +4,7 @@
   "input": {
     "repository": {
       "url": "https://github.com/241880199/DevOps",
-      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
     },
     "environment": {
       "image_ref": "draft-fixture-ok:1.0",
@@ -12,7 +12,7 @@
     },
     "build": {
       "clean_command": "make clean && make",
-      "project_root": "/work"
+      "project_root": "/work/fixtures/draft"
     },
     "limits": {
       "timeout_seconds": 900

@@ -18,8 +18,9 @@ contracts/ 下的契约**可被实际执行验证**：契约能不能表达四�
     GET  /v1/artifacts/{artifact_id}    下载产物
 
 执行模拟：
-    DRAFT 与 REPAIR 有完整的模拟执行路径；FULL_CHECK 与 INCREMENTAL_CHECK
-    由其他服务负责，这里只做受理与状态迁移，输出标注为占位。
+    四类任务均返回符合专用输出契约的模拟结果。FULL_CHECK 与
+    INCREMENTAL_CHECK 会为当前 job 动态登记依赖图和错误报告；这些结果只用于
+    验证接口和产物交接，不代表真实检测器已经运行。
 
 用法：
     python scripts/mock_server.py [--port 8080]
@@ -51,7 +52,15 @@ except ImportError:  # pragma: no cover
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "contracts"
+SAMPLES = CONTRACTS / "samples"
 FIXTURE_DOCKERFILE = ROOT / "fixtures" / "draft" / "docker" / "Dockerfile.ok"
+STATIC_A03_ARTIFACTS = (
+    ("artifact.actual-graph-001.json", ROOT / "fixtures" / "a03" / "full-check" / "actual-graph.json"),
+    ("artifact.declared-graph-001.json", ROOT / "fixtures" / "a03" / "full-check" / "declared-graph.json"),
+    ("artifact.error-report-001.json", ROOT / "fixtures" / "a03" / "full-check" / "error-report.json"),
+    ("artifact.actual-graph-002.json", ROOT / "fixtures" / "a03" / "incremental-check" / "actual-graph.json"),
+    ("artifact.error-report-002.json", ROOT / "fixtures" / "a03" / "incremental-check" / "error-report.json"),
+)
 
 SCHEMA_VERSION = "1.0"
 TERMINAL = {"SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"}
@@ -70,6 +79,14 @@ INPUT_SCHEMA = {
     "FULL_CHECK": "job-input-full-check",
     "INCREMENTAL_CHECK": "job-input-incremental-check",
     "REPAIR": "job-input-repair",
+}
+
+# job_type -> 专有输出 schema。任务只有通过对应输出契约后才能标为 SUCCEEDED。
+OUTPUT_SCHEMA = {
+    "DRAFT": "job-output-draft",
+    "FULL_CHECK": "job-output-full-check",
+    "INCREMENTAL_CHECK": "job-output-incremental-check",
+    "REPAIR": "job-output-repair",
 }
 
 # 内存态任务表 + 产物表。mock 不做持久化，进程退出即丢失。
@@ -191,6 +208,39 @@ def register_artifact(job_id, job_type, commit, blob: bytes, media_type: str) ->
     return art_id
 
 
+def register_json_artifact(job: dict, artifact_type: str,
+                           filename: str, content: dict) -> str:
+    """把当前检测 job 的 JSON 产物登记到下载接口。"""
+    blob = (json.dumps(content, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    art_id = artifact_type.lower().replace("_", "-") + "-" + uuid.uuid4().hex[:6]
+    commit = job["input"]["repository"]["commit"]
+    ARTIFACTS[art_id] = {
+        "artifact_id": art_id,
+        "type": artifact_type,
+        "uri": f"artifact://a03/{job['job_id']}/{filename}",
+        "media_type": "application/json",
+        "producer_job_id": job["job_id"],
+        "sha256": hashlib.sha256(blob).hexdigest(),
+        "size_bytes": len(blob),
+        "created_at": now_iso(),
+        "source_commit": commit,
+        "_blob": blob,
+    }
+    return art_id
+
+
+def load_static_a03_artifacts() -> None:
+    """登记可下载的 A03 人工契约样例，并拒绝摘要不一致的启动。"""
+    for record_name, content_path in STATIC_A03_ARTIFACTS:
+        record = json.loads((SAMPLES / record_name).read_text(encoding="utf-8"))
+        blob = content_path.read_bytes()
+        if hashlib.sha256(blob).hexdigest() != record.get("sha256"):
+            raise RuntimeError(f"A03 样例摘要失效：{record_name}")
+        if len(blob) != record.get("size_bytes"):
+            raise RuntimeError(f"A03 样例大小失效：{record_name}")
+        ARTIFACTS[record["artifact_id"]] = {**record, "_blob": blob}
+
+
 # -------------------------------------------------------------- 任务生命周期
 
 def output_for_draft(job: dict) -> dict:
@@ -262,15 +312,75 @@ def output_for_repair(job: dict) -> dict:
     }
 
 
-def output_for_other(job: dict) -> dict:
-    """FULL_CHECK / INCREMENTAL_CHECK 由其他服务负责，这里只占位。"""
-    job["output"] = {
-        "note": f"本 mock 未实现 {job['job_type']} 的执行逻辑；"
-                f"该任务类型由对应服务负责，此处仅验证受理与状态迁移。"
+def graph_for(job: dict, graph_kind: str) -> dict:
+    """生成最小依赖图；空图明确表示 mock 未执行真实分析。"""
+    payload = job["input"]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "repository": payload["repository"],
+        "configuration_id": payload["environment"]["configuration_id"],
+        "graph_kind": graph_kind,
+        "generated_at": now_iso(),
+        "nodes": [],
+        "edges": [],
     }
 
 
-def run_job(job_id: str, should_fail: bool) -> None:
+def report_for(job: dict, mode: str, detector: str) -> dict:
+    """生成无发现的模拟报告，不把 mock 结果伪装成工具检测结论。"""
+    payload = job["input"]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "repository": payload["repository"],
+        "configuration_id": payload["environment"]["configuration_id"],
+        "produced_by": {
+            "detector": detector,
+            "job_id": job["job_id"],
+            "mode": mode,
+        },
+        "generated_at": now_iso(),
+        "summary": {"missing": 0, "redundant": 0},
+        "findings": [],
+    }
+
+
+def output_for_full_check(job: dict) -> None:
+    actual_id = register_json_artifact(
+        job, "ACTUAL_GRAPH", "actual-graph.json", graph_for(job, "ACTUAL"))
+    declared_id = register_json_artifact(
+        job, "DECLARED_GRAPH", "declared-graph.json", graph_for(job, "DECLARED"))
+    report_id = register_json_artifact(
+        job, "ERROR_REPORT", "error-report.json",
+        report_for(job, "FULL", "BuildChecker-MOCK"))
+    payload = job["input"]
+    job["output"] = {
+        "resolved_commit": payload["repository"]["commit"],
+        "configuration_id": payload["environment"]["configuration_id"],
+        "actual_graph_artifact_id": actual_id,
+        "declared_graph_artifact_id": declared_id,
+        "error_report_artifact_id": report_id,
+        "summary": {"missing": 0, "redundant": 0},
+    }
+
+
+def output_for_incremental_check(job: dict) -> None:
+    actual_id = register_json_artifact(
+        job, "ACTUAL_GRAPH", "actual-graph.json", graph_for(job, "ACTUAL"))
+    report_id = register_json_artifact(
+        job, "ERROR_REPORT", "error-report.json",
+        report_for(job, "INCREMENTAL", "EChecker-MOCK"))
+    payload = job["input"]
+    job["output"] = {
+        "base_commit": payload["base_commit"],
+        "resolved_commit": payload["repository"]["commit"],
+        "configuration_id": payload["environment"]["configuration_id"],
+        "actual_graph_artifact_id": actual_id,
+        "error_report_artifact_id": report_id,
+        "changes": {"added": [], "resolved": []},
+    }
+
+
+def run_job(job_id: str, should_fail: bool, should_analysis_fail: bool) -> None:
     """后台线程：模拟 QUEUED -> RUNNING -> 终态。"""
     time.sleep(0.4)
     with LOCK:
@@ -299,11 +409,39 @@ def run_job(job_id: str, should_fail: bool) -> None:
             }
             return
 
+        if should_analysis_fail:
+            job["status"] = "FAILED"
+            job["error"] = {
+                "code": "ANALYSIS_5001",
+                "stage": "ANALYSIS",
+                "message": "依赖分析器异常退出，未能生成可信结果。",
+                "detail": "mock failure injection: repository URL ends with fail-analysis",
+                "at": now_iso(),
+            }
+            return
+
         builder = {
             "DRAFT": output_for_draft,
+            "FULL_CHECK": output_for_full_check,
+            "INCREMENTAL_CHECK": output_for_incremental_check,
             "REPAIR": output_for_repair,
-        }.get(job["job_type"], output_for_other)
+        }[job["job_type"]]
         builder(job)
+
+        output_errors = schema_errors(OUTPUT_SCHEMA[job["job_type"]], job["output"])
+        if output_errors:
+            job.pop("output", None)
+            job["status"] = "FAILED"
+            job["error"] = {
+                "code": "ANALYSIS_5001" if job["job_type"] in
+                        {"FULL_CHECK", "INCREMENTAL_CHECK"} else "EXEC_4002",
+                "stage": "ANALYSIS" if job["job_type"] in
+                         {"FULL_CHECK", "INCREMENTAL_CHECK"} else "EXEC",
+                "message": "mock 生成的任务输出不符合专用 Schema。",
+                "detail": "; ".join(output_errors),
+                "at": now_iso(),
+            }
+            return
         job["status"] = "SUCCEEDED"
 
 
@@ -369,6 +507,10 @@ class Handler(BaseHTTPRequestHandler):
         job_id = new_job_id()
         repo_url = body["input"].get("repository", {}).get("url", "")
         should_fail = repo_url.rstrip("/").endswith("fail")
+        should_analysis_fail = (
+            job_type in {"FULL_CHECK", "INCREMENTAL_CHECK"}
+            and repo_url.rstrip("/").endswith("fail-analysis")
+        )
 
         job = {
             "schema_version": SCHEMA_VERSION,
@@ -382,7 +524,11 @@ class Handler(BaseHTTPRequestHandler):
         with LOCK:
             JOBS[job_id] = job
 
-        threading.Thread(target=run_job, args=(job_id, should_fail), daemon=True).start()
+        threading.Thread(
+            target=run_job,
+            args=(job_id, should_fail, should_analysis_fail),
+            daemon=True,
+        ).start()
 
         self._send(202, {
             "job_id": job_id,
@@ -432,6 +578,7 @@ def main() -> None:
     ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args()
 
+    load_static_a03_artifacts()
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
     print("DevOps mock 已启动（内存态，无持久化）")
     for path, jt in sorted(ENDPOINTS.items()):

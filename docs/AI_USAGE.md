@@ -3,14 +3,14 @@
 本文件记录设计过程中 AI 的参与情况：AI 提出了什么、人工如何判断、如何验证。
 目的是让设计决策可追溯，而不是事后追认。
 
-按阶段分两轮：**第一轮**是契约从零搭起（E1），**第二轮**是在已有契约上找缺口（E2，B 组）。
-两轮的问题类型不同，分开记录。
+按阶段分三轮：**第一轮**是契约从零搭起（E1），**第二轮**是在已有契约上找缺口（E2，B 组），**第三轮**补齐 A03 的检测契约与设计记录。
+三轮的问题类型不同，分开记录。
 
 ## 使用的工具与范围
 
 | 项 | 内容 |
 | --- | --- |
-| 工具 | Claude Code（CLI） |
+| 工具 | Claude Code（CLI，第一、二轮）；Codex（第三轮） |
 | 参与范围 | 契约结构设计、schema 起草、样例编写、校验脚本与模拟服务实现、文档起草 |
 | 未参与 | 关键契约决策的最终取舍（见下）、产物校验结论的采信 |
 
@@ -177,3 +177,77 @@ python scripts/mock_server.py  # REPAIR 报告版本检查与 DRAFT 输出实测
 
 新增检查：10（修复失败边界与错误码）、11（修复固定输入与磁盘文件一致）；
 扩展检查：06（摘要核验覆盖补丁产物）、08（REPAIR 两支不变式）。
+
+# 第三轮（E2 阶段，A 组）
+
+本轮使用 Codex，范围是补齐 A03 负责的全量/增量检测输出契约。
+### 11. 检测任务只有输入契约，没有专用输出契约
+
+- **来源**：仓库已有 `job-input-full-check.schema.json` 与 `job-input-incremental-check.schema.json`，但输出侧只有 DRAFT 和 REPAIR 的专用 schema；`task.schema.json` 只约束 `output` 是一个对象。
+- **问题**：现有约束无法证明 BuildChecker 一定交付实际图、声明图和错误报告，也无法证明 EChecker 返回了下一次增量检测可复用的图。即使检测任务返回空对象，统一任务模型仍可能接受。
+- **AI 建议**：为两类检测分别建立专用输出 schema，并增加一份统一的依赖图 schema。
+- **处理**：采纳。新增 `job-output-full-check.schema.json`、`job-output-incremental-check.schema.json` 和 `dependency-graph.schema.json`，并各补一份成功响应样例。
+- **人工补充**：全量输出必须同时引用实际图、声明图和错误报告；增量输出必须同时保存 `base_commit`、当前提交和 `configuration_id`，避免图与源码版本脱节。
+- **验证**：`scripts/validate.py` 检查 01、05、12 校验两类输出样例、四类输出契约覆盖以及版本字段一致性。
+
+### 12. 增量结果只给当前报告，无法说明错误怎样变化
+
+- **AI 建议**：EChecker 输出当前完整报告，并用 `changes.added` 与 `changes.resolved` 表达相对历史基线的变化。
+- **处理**：采纳。
+- **理由**：MDFixer 需要的是当前仍有效的 MD，不能只收到差异；完整报告和变化列表承担不同用途，不能互相替代。
+- **约束补充**：变化项沿用错误报告 finding 的核心字段，包括 `commit`、`provenance`、`location` 与 `evidence`，不允许退化成只有 `(target, dependency)` 的记录。
+- **验证**：`job.incremental-check.succeeded.json` 给出一条新增的 `main.o -> feature.h`；检查 12 同时核对 `base_commit` 与 `configuration_id`。
+
+
+
+### 13. A 组关键输出只有 Schema，没有对应 ADR
+
+- **来源**：A03 新增了 `dependency-graph.schema.json`、`job-output-full-check.schema.json` 与 `job-output-incremental-check.schema.json`，但 `docs/ADR/` 中原有记录只覆盖公共任务模型、产物交接、错误语义和 B 组的 DRAFT / REPAIR 决策。
+- **问题**：Schema 表达了最终字段，却没有记录为什么 BuildChecker 要分别交付实际图、声明图和错误报告，也没有记录为什么 EChecker 要同时返回当前完整报告与新增/消除变化。评审者只能看到结果，无法追溯备选方案和代价。
+- **AI 建议**：分别新增 BuildChecker 输出组织和 EChecker 基线语义的 ADR，避免把两项独立决策压缩成一份过大的记录。
+- **处理**：采纳。新增 `docs/ADR/ADR-008-BuildChecker输出与依赖图交付.md` 与 `docs/ADR/ADR-009-EChecker基线身份与变化表达.md`。
+- **人工补充**：两份 ADR 只记录 A03 的检测服务决策，不修改 ADR-001 至 ADR-007，也不替 B03 确认 DRAFT、REPAIR 或部署方式。
+- **验证**：`docs/A03_TASKS.md` 与 `docs/backlog.md` 已加入两份 ADR 的索引，`docs/接口说明.md` 的 FULL_CHECK / INCREMENTAL_CHECK 输出段落已链接对应决策记录。
+
+### 14. ADR 确认状态与配对记录不一致
+
+- **来源**：ADR-007 仍标为“待 A 组确认”，但 `docs/A03_TASKS.md` 和 `docs/配对组接口交换记录.md` 已写明 A03 接受由 DRAFT 回报 `configuration_id`；ADR-002 已采纳 URI 引用方案，但实际读取方式仍未选择；ADR-006 中 `REPAIR_6001` 的两种载体也仍在待确认列表。
+- **问题**：同一决定在不同文件中同时呈现“已接受”和“待确认”，容易让评审者误判双方是否已经达成一致。A03 也不能通过直接改写 B03 的既有 ADR 来代替配对确认。
+- **AI 建议**：保留既有 ADR 原文，由 A03 在自己的任务清单和配对回复中记录接受范围；需要双方决定的 URI 读取方式、镜像交付位置和错误载体继续保留为未决事项。
+- **处理**：采纳“不修改已有 ADR”的边界。本轮只新增 A03 的 ADR-008、ADR-009，并保留现有联合待确认项。
+- **人工补充**：ADR-007 的最终状态应由原决策维护方在收到 A03 回复后更新；A03 的接受证据继续以 `docs/A03_TASKS.md` 和 `docs/配对组接口交换记录.md` 为准。
+- **验证**：确认 ADR-001 至 ADR-007 没有内容变更；新增文件编号从 ADR-008 开始，未覆盖已有记录。
+
+## 验证方式（第三轮）
+
+```bash
+python scripts/validate.py  # 151 项契约检查，退出码 0
+```
+
+已完成 JSON/Python 语法检查和 151/151 项契约校验。
+
+### 15. A03 样例引用占位提交和不存在的检测产物
+
+- **来源**：FULL_CHECK / INCREMENTAL_CHECK 样例使用由短 SHA 补写出的 40 位字符串，并引用 `actual-graph-001` 等没有对应记录和实物的产物编号。
+- **问题**：占位 SHA 能通过正则但不能被 Git 解析；悬空 artifact ID 也无法通过双方选定的下载接口交接。两者都会让结构合法的样例给出错误的可追溯性印象。
+- **AI 建议**：选择仓库中真实存在且具有祖先关系的两次提交，为每个检测产物补 artifact 记录与磁盘实物，并把提交存在性、祖先关系、摘要和大小纳入自动校验。
+- **处理**：采纳。A03 使用 `d47a1523beec3311033eabf2e74c2a6ac299720d` 作为基线、`31cd2ad96ad5660db491b41aa2a396e7f1e092a3` 作为当前提交；新增 `fixtures/a03/` 和五份 artifact 记录。因没有真实运行检测器，报告标记为 `MANUAL`，增量变化集保持为空，不伪造工具发现。
+- **人工补充**：A03 选择 `GET /v1/artifacts/{artifact_id}` 作为读取方式；E2 使用同机本地镜像，不要求 B03 额外交付可执行文件或中间目标文件。
+- **验证**：`scripts/validate.py` 当前 151/151 项通过，检查 A03 产物契约、摘要、大小、提交存在性和基线祖先关系；`scripts/mock_server.py` 启动时登记五份固定产物供下载。
+
+### 16. 检测类 mock 成功输出违反自身 Schema，且缺少分析失败样例
+
+- **来源**：`scripts/mock_server.py` 对 `FULL_CHECK` / `INCREMENTAL_CHECK` 使用通用
+  `output_for_other`，只返回 `note`，随后却把任务标为 `SUCCEEDED`；该对象不符合两类
+  A03 专用输出 Schema。错误码表已定义 `ANALYSIS_5001`，但没有对应失败样例。
+- **问题**：HTTP 运行结果与静态成功样例相互矛盾；校验脚本只能证明样例正确，不能防止
+  mock 在运行时生成非法成功结果。分析器崩溃也缺少可供配对组复核的任务形状。
+- **AI 建议**：为两类检测分别生成动态空图和空报告，登记为当前 job 的可下载 artifact；
+  在写入 `SUCCEEDED` 前用专用输出 Schema 自检，并补充 `ANALYSIS_5001` 失败样例和
+  可复现的 mock 注入路径。
+- **处理**：采纳。mock 现在为 FULL_CHECK 生成实际图、声明图和错误报告，为
+  INCREMENTAL_CHECK 生成当前实际图、错误报告及空变化集；URL 以 `fail-analysis` 结尾时
+  返回 `FAILED / ANALYSIS_5001`。空图和空报告明确是契约模拟，不冒充真实检测结果。
+- **人工补充**：修改仅覆盖 A03 检测任务；DRAFT / REPAIR 的输出逻辑和 B03 样例未改动。
+- **验证**：`scripts/validate.py` 校验新失败样例及错误语义；HTTP 实测两类成功输出均通过
+  专用 Schema、所有输出 artifact 均可下载，失败注入不携带 `output`。
