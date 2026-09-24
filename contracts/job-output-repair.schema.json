@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-output-repair.schema.json",
   "title": "RepairJobOutput",
-  "description": "REPAIR 任务的专有输出。挂在统一任务模型的 output 字段下。补丁必须贴合原项目的声明风格，因此输出要说明采用了哪种风格，以及每个候选被接受或拒绝的理由。",
+  "description": "REPAIR 任务的专有输出。挂在统一任务模型的 output 字段下。补丁必须贴合原项目的声明风格，因此输出要说明采用了哪种风格，以及每个候选被接受或拒绝的理由。补丁内的路径以环境（environment_id 指向的 Environment）的项目根为基准，与输入报告中 location 的基准一致。",
   "type": "object",
   "required": ["fixed", "verification"],
   "additionalProperties": false,

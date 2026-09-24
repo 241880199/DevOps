@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/task-legacy-v1.schema.json",
   "title": "Legacy Task 1.0",
-  "description": "仅用于校验尚待 B03 迁移的 DRAFT / REPAIR 历史样例。新接口不得使用此 Schema。",
+  "description": "1.0 历史结构，仅为版本追溯保留：DRAFT / REPAIR 已于 2026-09-24 迁移到统一任务模型 2.0（见 docs/ADR/ADR-011），不再有任何样例引用此 Schema。新接口不得使用。",
   "type": "object",
   "required": ["schema_version", "job_id", "job_type", "status", "execution"],
   "additionalProperties": false,

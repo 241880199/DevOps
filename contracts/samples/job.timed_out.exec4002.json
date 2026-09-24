@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "job_id": "job-draft04",
   "trace_id": "trace-draft-0004",
   "job_type": "DRAFT",
@@ -13,12 +13,12 @@
   "input": {
     "repository": {
       "url": "https://github.com/241880199/DevOps",
-      "commit": "b06e66e"
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
     },
     "build": {
       "command": "make",
       "verify_command": "./hello",
-      "verify_expect": "hello draft",
+      "verify_expect": "hello E3",
       "project_subdir": "fixtures/draft"
     },
     "limits": {

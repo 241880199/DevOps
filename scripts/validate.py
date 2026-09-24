@@ -15,8 +15,9 @@
   09  修复任务只消费缺失依赖报告
   10  修复的失败边界：rejected[] 与 job.error 各司其职
   11  修复的固定输入与磁盘上的真实文件对得上
-  12  A03 检测输出、可读取产物、真实提交及基线祖先关系一致
-  13  A03 与 contract-phase 公共结构保持一致
+  12  检测服务输出、可读取产物、真实提交及基线祖先关系一致
+  13  检测服务契约与 contract-phase 公共结构保持一致
+  14  环境交接：环境生成服务产出环境，下游任务只按 environment_id 引用
 
 用法（在仓库根目录执行）：
     python scripts/validate.py
@@ -38,13 +39,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "contracts"
 SAMPLES = CONTRACTS / "samples"
-A03_FIXTURES = ROOT / "fixtures" / "a03"
+DETECTION_FIXTURES = ROOT / "fixtures" / "detection"
 
-A03_ARTIFACTS = (
-    ("artifact.actual-graph-001.json", A03_FIXTURES / "full-check" / "actual-graph.json", "dependency-graph"),
-    ("artifact.declared-graph-001.json", A03_FIXTURES / "full-check" / "declared-graph.json", "dependency-graph"),
-    ("artifact.error-report-001.json", A03_FIXTURES / "full-check" / "error-report.json", "error-report"),
-    ("artifact.error-report-002.json", A03_FIXTURES / "incremental-check" / "error-report.json", "error-report"),
+DETECTION_ARTIFACTS = (
+    ("artifact.actual-graph-001.json", DETECTION_FIXTURES / "full-check" / "actual-graph.json", "dependency-graph"),
+    ("artifact.declared-graph-001.json", DETECTION_FIXTURES / "full-check" / "declared-graph.json", "dependency-graph"),
+    ("artifact.error-report-001.json", DETECTION_FIXTURES / "full-check" / "error-report.json", "error-report"),
+    ("artifact.error-report-002.json", DETECTION_FIXTURES / "incremental-check" / "error-report.json", "error-report"),
 )
 
 try:
@@ -150,6 +151,14 @@ def create_samples() -> list[Path]:
     return sorted(SAMPLES.glob("create-*.request.json"))
 
 
+def sample_environments() -> dict[str, dict]:
+    """样例中的环境记录，按 environment_id 索引。"""
+    return {
+        record["environment_id"]: record
+        for record in (load_json(p) for p in sorted(SAMPLES.glob("environment.*.json")))
+    }
+
+
 # ------------------------------------------------------------------ 检查项
 
 def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
@@ -176,24 +185,14 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
         f"缺少：{sorted(expected - seen_types)}",
     )
 
-    # 响应样例：A03 已迁移任务校验统一 2.0 模型；B03 样例保留 legacy 1.0，
-    # 仅校验其仍由 B03 维护的专有输出，不能通过改版本号冒充已完成共同结构迁移。
-    a03_v2 = {
-        "job.full-check.succeeded.json",
-        "job.incremental-check.succeeded.json",
-        "job.failed.analysis5001.json",
-    }
+    # 四类任务统一到 Job 2.0：DRAFT / REPAIR 与两类检测走同一份契约，
+    # 不再存在并行的 legacy 版本——迁移完成后仍留在 1.0 的样例即为未完成。
     for name in ("job.succeeded.json", "job.full-check.succeeded.json",
                  "job.incremental-check.succeeded.json",
                  "job.repair.succeeded.json", "job.repair.no_fix.json"):
         job = sample(name)
-        if name in a03_v2:
-            errs = errors_of(schemas["task"], job)
-            rep.check(f"{name} 符合统一任务模型 2.0", not errs, "\n".join(errs))
-        else:
-            errs = errors_of(schemas["task-legacy-v1"], job)
-            rep.check(f"{name} 符合 B03 legacy 1.0 任务模型",
-                      not errs, "\n".join(errs))
+        errs = errors_of(schemas["task"], job)
+        rep.check(f"{name} 符合统一任务模型 2.0", not errs, "\n".join(errs))
         out_schema = OUTPUT_SCHEMA.get(job.get("job_type"))
         if out_schema:
             errs = errors_of(schemas[out_schema], job.get("output", {}))
@@ -203,15 +202,12 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
                  "job.failed.analysis5001.json",
                  "job.timed_out.exec4002.json", "job.failed.repair6001.json"):
         job = sample(name)
-        if name in a03_v2:
-            errs = errors_of(schemas["task"], job)
-            rep.check(f"{name} 符合统一任务模型 2.0", not errs, "\n".join(errs))
-        else:
-            errs = errors_of(schemas["task-legacy-v1"], job)
-            rep.check(f"{name} 符合 B03 legacy 1.0 任务模型",
-                      not errs, "\n".join(errs))
+        errs = errors_of(schemas["task"], job)
+        rep.check(f"{name} 符合统一任务模型 2.0", not errs, "\n".join(errs))
 
-    artifact_names = ["artifact.json", "artifact.patch.json"] + [item[0] for item in A03_ARTIFACTS]
+    artifact_names = ["artifact.json", "artifact.patch.json",
+                      "artifact.image-ref-001.json", "artifact.image-ref-002.json",
+                      "artifact.error-report-003.json"] + [item[0] for item in DETECTION_ARTIFACTS]
     for name in artifact_names:
         errs = errors_of(schemas["artifact"], sample(name))
         rep.check(f"{name} 符合 artifact.schema.json", not errs, "\n".join(errs))
@@ -266,9 +262,12 @@ def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
         ("create-repair-job.request.json", "REPAIR",
          [("删除 report（修复无目标）", lambda i: i.pop("report")),
           ("删除 report.finding_type", lambda i: i["report"].pop("finding_type")),
-          ("删除 environment（无从复构建）", lambda i: i.pop("environment")),
-          ("删除 environment.recheck_command 之外的必填项 build_command",
-           lambda i: i["environment"].pop("build_command")),
+          ("删除 report.artifact_id（报告无可取回的编号）",
+           lambda i: i["report"].pop("artifact_id")),
+          ("删除 environment_id（无从复构建与复检）", lambda i: i.pop("environment_id")),
+          ("删除 verification（无从判断修改是否生效）", lambda i: i.pop("verification")),
+          ("删除 verification.verify_command",
+           lambda i: i["verification"].pop("verify_command")),
           ("删除 repository", lambda i: i.pop("repository"))]),
 
         ("create-full-check-job.request.json", "FULL_CHECK",
@@ -424,14 +423,17 @@ def check_06_artifact_digest_is_real(schemas: dict, rep: Report) -> None:
     数值样例最容易出的问题是「看起来合理但已过期」——文件改一个字，摘要就失效，
     而样例本身不会报错。这里把它变成一条可执行的检查。
 
-    覆盖两类产物：环境生成服务产出的 Dockerfile，与修复服务产出的补丁。
-    两者都是交接物，交接物的摘要不实，下游的完整性核验就是空转。
+    覆盖全部逐字节引用的交接物：环境生成服务的 Dockerfile、镜像引用与修复服务的
+    补丁、固定 MD 报告。交接物的摘要不实，下游的完整性核验就是空转。
     """
     print("\n检查 06：产物样例的摘要与实际文件一致")
 
     cases = [
         ("artifact.json", ROOT / "fixtures" / "draft" / "docker" / "Dockerfile.ok"),
         ("artifact.patch.json", ROOT / "fixtures" / "mdfixer" / "reference.patch"),
+        ("artifact.image-ref-001.json", ROOT / "fixtures" / "draft" / "docker" / "image-ref.txt"),
+        ("artifact.image-ref-002.json", ROOT / "fixtures" / "mdfixer" / "docker" / "image-ref.txt"),
+        ("artifact.error-report-003.json", ROOT / "fixtures" / "mdfixer" / "error-report.json"),
     ]
 
     for name, target in cases:
@@ -566,8 +568,8 @@ def check_10_repair_failure_boundary(schemas: dict, rep: Report) -> None:
         rep.check(f"{code} 已在 error-codes.md 中定义", code in doc, "文档中查无此码")
 
     job = sample("job.failed.repair6001.json")
-    errs = errors_of(schemas["task-legacy-v1"], job)
-    rep.check("job.failed.repair6001.json 符合 B03 legacy 1.0 任务模型",
+    errs = errors_of(schemas["task"], job)
+    rep.check("job.failed.repair6001.json 符合统一任务模型 2.0",
               not errs, "\n".join(errs))
     rep.check("修复输入不可用时任务为 FAILED 且 error.stage 为 REPAIR",
               job.get("status") == "FAILED"
@@ -656,9 +658,15 @@ def check_11_repair_fixture_is_real(schemas: dict, rep: Report) -> None:
     rep.check("固定 MD 报告的 commit 与 REPAIR 请求样例一致",
               report["repository"]["commit"] == req["repository"]["commit"],
               f"报告 {report['repository']['commit']}\n请求 {req['repository']['commit']}")
-    rep.check("REPAIR 请求样例的 project_subdir 指向固定输入目录",
-              req.get("project_subdir") == "fixtures/mdfixer",
-              f"实际 {req.get('project_subdir')!r}")
+
+    # 报告与 Makefile 的路径基准由环境约定给出，不再是任务里的 project_subdir：
+    # 报告说 location.file=Makefile，就该在 environment.project_root 下真有这个文件。
+    env = sample_environments().get(req.get("environment_id"))
+    rep.check("REPAIR 请求样例的 environment_id 有可查环境记录",
+              env is not None, f"实际 {req.get('environment_id')!r}")
+    rep.check("该环境的项目根指向固定输入目录",
+              bool(env) and env["project_root"].rstrip("/").endswith("fixtures/mdfixer"),
+              f"实际 {env and env['project_root']!r}")
 
     # 参考补丁：模拟最小应用，验证两件事——补丁改动行确实存在于 Makefile，
     # 以及应用之后缺失依赖被补上、冗余声明原样保留。
@@ -697,9 +705,9 @@ def check_11_repair_fixture_is_real(schemas: dict, rep: Report) -> None:
               f"实际 {art.get('type')!r}")
 
 
-def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
-    """A03 的检测输出样例必须符合专用契约和版本约束。"""
-    print("\n检查 12：A03 检测输出契约")
+def check_12_detection_outputs(schemas: dict, rep: Report) -> None:
+    """检测服务的输出样例必须符合专用契约和版本约束。"""
+    print("\n检查 12：检测服务输出契约")
 
     full = sample("job.full-check.succeeded.json")
     incr = sample("job.incremental-check.succeeded.json")
@@ -709,7 +717,7 @@ def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
         rep.check(f"{job['job_type']} 成功输出符合专有契约", not errs, "\n".join(errs))
 
     failed = sample("job.failed.analysis5001.json")
-    rep.check("ANALYSIS_5001 样例是 A03 检测任务的分析阶段失败",
+    rep.check("ANALYSIS_5001 样例是 检测任务的分析阶段失败",
               failed.get("job_type") in {"FULL_CHECK", "INCREMENTAL_CHECK"}
               and failed.get("status") == "FAILED"
               and failed.get("error", {}).get("code") == "ANALYSIS_5001"
@@ -732,7 +740,7 @@ def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
               "增量产物不能归属到另一提交")
 
     records = {}
-    for record_name, content_path, content_schema in A03_ARTIFACTS:
+    for record_name, content_path, content_schema in DETECTION_ARTIFACTS:
         record = sample(record_name)
         content = load_json(content_path)
         records[record["artifact_id"]] = record
@@ -776,7 +784,7 @@ def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
             ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
             cwd=ROOT, capture_output=True, text=True, check=False,
         )
-        rep.check(f"A03 {label} SHA 是仓库中真实存在的提交",
+        rep.check(f"依赖检测服务 {label} SHA 是仓库中真实存在的提交",
                   len(commit) == 40 and proc.returncode == 0,
                   f"无法解析提交 {commit}")
 
@@ -784,7 +792,7 @@ def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
         ["git", "merge-base", "--is-ancestor", base_commit, current_commit],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
-    rep.check("A03 增量基线是当前提交的祖先",
+    rep.check("依赖检测服务增量基线是当前提交的祖先",
               ancestry.returncode == 0,
               f"{base_commit} 不是 {current_commit} 的祖先")
 
@@ -793,9 +801,10 @@ def check_13_contract_phase_alignment(schemas: dict, rep: Report) -> None:
     """锁定 contract-phase@431a743 已共同确定的公共约束。"""
     print("\n检查 13：contract-phase 公共结构对齐")
 
-    rep.check("公共 Schema 与隔离的 B03 legacy Schema 已加载",
-              {"repository", "environment", "task-legacy-v1"} <= schemas.keys(),
-              "缺少 repository、environment 或 task-legacy-v1 Schema")
+    rep.check("公共 Schema 与历史版本 Schema 均已加载",
+              {"repository", "environment", "artifact", "task", "task-legacy-v1"}
+              <= schemas.keys(),
+              "缺少公共 Schema 或历史版本 Schema")
 
     task = schemas["task"]
     execution = task["properties"]["execution"]
@@ -848,9 +857,9 @@ def check_13_contract_phase_alignment(schemas: dict, rep: Report) -> None:
         ("Artifact.created_at", schemas["artifact"], sample("artifact.actual-graph-001.json"),
          "created_at"),
         ("DependencyGraph.generated_at", schemas["dependency-graph"],
-         load_json(A03_FIXTURES / "full-check" / "actual-graph.json"), "generated_at"),
+         load_json(DETECTION_FIXTURES / "full-check" / "actual-graph.json"), "generated_at"),
         ("ErrorReport.generated_at", schemas["error-report"],
-         load_json(A03_FIXTURES / "full-check" / "error-report.json"), "generated_at"),
+         load_json(DETECTION_FIXTURES / "full-check" / "error-report.json"), "generated_at"),
     )
     for label, schema, instance, field in timestamp_instances:
         bad_instance = copy.deepcopy(instance)
@@ -881,12 +890,7 @@ def check_13_contract_phase_alignment(schemas: dict, rep: Report) -> None:
               "actual_graph_artifact_id" not in incr_out,
               "共同产出方矩阵只允许 BuildChecker 产出 ACTUAL_GRAPH")
 
-    a03_names = {
-        "job.full-check.succeeded.json",
-        "job.incremental-check.succeeded.json",
-        "job.failed.analysis5001.json",
-    }
-    b03_legacy_names = {
+    job_samples = {
         "job.succeeded.json",
         "job.running.json",
         "job.failed.env3002.json",
@@ -894,15 +898,145 @@ def check_13_contract_phase_alignment(schemas: dict, rep: Report) -> None:
         "job.repair.succeeded.json",
         "job.repair.no_fix.json",
         "job.failed.repair6001.json",
+        "job.full-check.succeeded.json",
+        "job.incremental-check.succeeded.json",
+        "job.failed.analysis5001.json",
     }
-    rep.check("A03 检测 Job 样例使用 schema_version=2.0",
-              all(sample(name).get("schema_version") == "2.0"
-                  for name in a03_names),
-              "A03 的破坏性迁移必须使用 2.0")
-    rep.check("B03 未迁移 Job 样例明确保留为 legacy 1.0",
-              all(sample(name).get("schema_version") == "1.0"
-                  for name in b03_legacy_names),
-              "不得只改版本号、却保留旧 Repository/Environment 结构")
+    rep.check("四类任务的 Job 样例统一使用 schema_version=2.0",
+              all(sample(name).get("schema_version") == "2.0" for name in job_samples),
+              "存在仍停留在 1.0 的 Job 样例：迁移未完成")
+    rep.check("Job 样例中不再出现已被 environment_id 取代的 configuration_id",
+              all("configuration_id" not in json.dumps(sample(name))
+                  for name in job_samples),
+              "configuration_id 仅保留在 ADR 的历史记录中，不应再出现在契约样例里")
+    rep.check("历史版本 Schema 仅为存档，不再有样例引用",
+              "task-legacy-v1" in schemas
+              and not any(sample(name).get("schema_version") == "1.0"
+                          for name in job_samples),
+              "legacy Schema 应保留为版本记录，但迁移完成后不应再有 1.0 样例")
+
+def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
+    """环境交接：环境生成服务产出环境，下游任务只按 environment_id 引用。
+
+    环境被拆成两处存放——任务里存编号，完整定义由环境生成服务保存并提供。
+    拆开就要能对上号：样例里出现的每个 environment_id 都得有定义，环境引用的镜像
+    得是真实产物，产物归属的环境也得是环境生成服务产出的那一个。任何一处对不上，
+    下游拿到的就是「有编号、没环境」。
+    """
+    print("\n检查 14：环境交接（环境生成服务产出、下游按 ID 引用）")
+
+    envs = sample_environments()
+    rep.check("样例中存在环境记录", bool(envs), "未找到 environment.*.json")
+
+    for env in envs.values():
+        errs = errors_of(schemas["environment"], env)
+        rep.check(f"环境样例 {env['environment_id']} 符合 environment.schema.json",
+                  not errs, "\n".join(errs))
+
+    image_records = {
+        record["artifact_id"]: record
+        for record in (sample(n) for n in ("artifact.image-ref-001.json",
+                                           "artifact.image-ref-002.json"))
+    }
+    for env_id, env in sorted(envs.items()):
+        image = image_records.get(env.get("image"))
+        rep.check(f"{env_id} 的 image 指向一个 IMAGE_REF 产物",
+                  bool(image) and image.get("type") == "IMAGE_REF",
+                  f"image={env.get('image')!r}")
+        rep.check(f"{env_id} 的镜像产物由环境生成服务产出",
+                  bool(image)
+                  and image.get("environment_id") is None
+                  and image.get("uri", "").startswith("artifact://draft/"),
+                  "环境生成服务的产物产出时环境尚不存在：environment_id 必须为 null，"
+                  "存储域必须按服务命名")
+
+    for name in ("job.succeeded.json", "job.full-check.succeeded.json",
+                 "job.incremental-check.succeeded.json",
+                 "job.repair.succeeded.json", "job.repair.no_fix.json",
+                 "job.failed.repair6001.json"):
+        env_id = ((sample(name).get("input") or {}).get("environment_id"))
+        if env_id is None:
+            continue
+        rep.check(f"{name} 引用的环境 {env_id} 有定义", env_id in envs,
+                  "引用了没有环境记录的 environment_id：下游取不到构建命令与项目根")
+
+    draft = sample("job.succeeded.json")["output"]
+    rep.check("DRAFT 输出回报 environment_id 且有对应环境记录",
+              draft.get("environment_id") in envs,
+              f"实际 {draft.get('environment_id')!r}")
+    rep.check("DRAFT 输出的镜像产物编号与环境引用的镜像一致",
+              envs.get(draft.get("environment_id", ""), {}).get("image")
+              == draft.get("image_artifact_id"),
+              "两处不一致时同一环境会有两个名字")
+    rep.check("DRAFT 输出不再携带 configuration_id / image_ref",
+              "configuration_id" not in draft and "image_ref" not in draft,
+              "旧字段已由 environment_id 与镜像产物编号取代")
+
+    detect_env = envs.get("env-draft-fixture-mode0", {})
+    rep.check("检测所用环境声明了 ptrace 运行能力",
+              "ptrace" in detect_env.get("runtime_capabilities", []),
+              "运行能力是需求方（依赖检测需要读文件访问记录）提出的，必须由环境声明")
+
+    repair = sample("create-repair-job.request.json")["input"]
+    rep.check("REPAIR 输入不内嵌环境定义、也不带 project_subdir",
+              "environment" not in repair and "project_subdir" not in repair,
+              "构建方式只在环境里表达；路径基准取环境的项目根")
+
+    report_ref = repair["report"]
+    report_record = sample("artifact.error-report-003.json")
+    rep.check("REPAIR 的报告编号有对应的产物记录",
+              report_ref.get("artifact_id") == report_record["artifact_id"],
+              f"实际 {report_ref.get('artifact_id')!r}")
+    rep.check("REPAIR 声明的 artifact_uri 与产物记录的 uri 一致",
+              report_ref.get("artifact_uri") == report_record["uri"],
+              f"请求 {report_ref.get('artifact_uri')!r}\n记录 {report_record['uri']!r}")
+    rep.check("报告产物归属的环境就是修复所用的环境",
+              report_record.get("environment_id") == repair.get("environment_id"),
+              "环境不一致时复构建与复检的结论不可比")
+
+    patch = sample("artifact.patch.json")
+    rep.check("修复产物记录了所属环境",
+              patch.get("environment_id") in envs,
+              f"实际 {patch.get('environment_id')!r}")
+    rep.check("环境生成服务的产物样例 environment_id 为 null",
+              sample("artifact.json").get("environment_id") is None,
+              "DOCKERFILE 产出时环境尚不存在")
+
+    # 报告所依据的提交必须等于该环境产出时的提交：报告说「在某个环境里发现了问题」，
+    # 那就得是针对这个环境构建的那份源码说的，否则位置与证据都指向别的版本。
+    report_cases = (
+        ("契约样例报告", sample("error-report.json"), "env-draft-fixture-mode0"),
+        ("固定 MD 报告",
+         load_json(ROOT / "fixtures" / "mdfixer" / "error-report.json"),
+         "env-draft-mdfixer-001"),
+    )
+    for label, report_obj, env_id in report_cases:
+        image = image_records[envs[env_id]["image"]]
+        rep.check(f"{label}所依据的提交等于该环境产出时的提交",
+                  report_obj["repository"]["commit"] == image["source_commit"],
+                  f"报告 {report_obj['repository']['commit']}\n"
+                  f"环境镜像产物 {image['source_commit']}")
+
+    checked = {
+        "DRAFT 输入提交": sample("job.succeeded.json")["input"]["repository"]["commit"],
+        "DRAFT 输出提交": sample("job.succeeded.json")["output"]["resolved_commit"],
+        "DOCKERFILE 产物提交": sample("artifact.json")["source_commit"],
+        "PATCH 产物提交": sample("artifact.patch.json")["source_commit"],
+        "报告产物提交": report_record["source_commit"],
+        "REPAIR 输入提交": repair["repository"]["commit"],
+    }
+    for label, commit in sorted(checked.items()):
+        proc = subprocess.run(["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+                              cwd=ROOT, capture_output=True, text=True, check=False)
+        rep.check(f"生成与修复侧样例提交真实存在：{label}",
+                  len(commit) == 40 and proc.returncode == 0,
+                  f"无法解析提交 {commit}")
+
+    failed = sample("job.failed.repair6001.json")["input"]
+    rep.check("REPAIR_6001 样例的请求提交确实不同于报告所依据的提交",
+              failed["repository"]["commit"] != report_record["source_commit"],
+              "两者相同时该失败样例不成立")
+
 
 # -------------------------------------------------------------------- main
 
@@ -926,8 +1060,9 @@ def main() -> int:
     check_09_repair_consumes_missing_only(schemas, rep)
     check_10_repair_failure_boundary(schemas, rep)
     check_11_repair_fixture_is_real(schemas, rep)
-    check_12_a03_detection_outputs(schemas, rep)
+    check_12_detection_outputs(schemas, rep)
     check_13_contract_phase_alignment(schemas, rep)
+    check_14_environment_handoff(schemas, rep)
     return rep.summary()
 
 

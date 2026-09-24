@@ -1,0 +1,8 @@
+{
+  "environment_id": "env-draft-mdfixer-001",
+  "image": "image-ref-002",
+  "project_root": "/workspace/fixtures/mdfixer",
+  "working_directory": "/workspace/fixtures/mdfixer",
+  "build_command": "make",
+  "runtime_capabilities": []
+}

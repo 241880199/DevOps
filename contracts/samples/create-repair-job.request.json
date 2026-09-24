@@ -4,19 +4,17 @@
   "input": {
     "repository": {
       "url": "https://github.com/241880199/DevOps",
-      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+      "commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
     },
     "report": {
-      "artifact_id": "md-report-001",
-      "artifact_uri": "artifact://b03/job-oracle-mdfixer01/error-report.json",
+      "artifact_id": "error-report-003",
+      "artifact_uri": "artifact://oracle/job-oracle-mdfixer01/error-report.json",
       "finding_type": "MISSING",
-      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+      "commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
     },
-    "project_subdir": "fixtures/mdfixer",
+    "environment_id": "env-draft-mdfixer-001",
     "makefile_path": "Makefile",
-    "environment": {
-      "image_ref": "mdfixer-fixture:1.0",
-      "build_command": "make",
+    "verification": {
       "verify_command": "./app",
       "recheck_command": "make clean && make"
     },

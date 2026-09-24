@@ -9,7 +9,7 @@
     "build": {
       "command": "make",
       "verify_command": "./hello",
-      "verify_expect": "hello draft",
+      "verify_expect": "hello E3",
       "project_subdir": "fixtures/draft"
     },
     "limits": {

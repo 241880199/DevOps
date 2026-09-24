@@ -1,5 +1,9 @@
-# A03 artifact samples use byte-for-byte SHA-256 records; keep their content stable across hosts.
-fixtures/a03/**/*.json text eol=lf
+# Byte-for-byte referenced samples: keep LF on every host so the recorded digests stay true.
+fixtures/detection/**/*.json text eol=lf
+# Fixture files are byte-for-byte referenced (SHA-256 in artifact samples) and consumed
+# inside Linux containers; without this their bytes depend on the host's core.autocrlf.
+fixtures/draft/** text eol=lf
+fixtures/mdfixer/** text eol=lf
 contracts/samples/artifact.actual-graph-*.json text eol=lf
 contracts/samples/artifact.declared-graph-*.json text eol=lf
 contracts/samples/artifact.error-report-*.json text eol=lf

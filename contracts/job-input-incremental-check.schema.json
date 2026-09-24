@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-input-incremental-check.schema.json",
   "title": "IncrementalCheckJobInput",
-  "description": "INCREMENTAL_CHECK 的 A03 接口提案。任务以 artifact_id 引用 BuildChecker 的基线实际图，并以 environment_id 判断执行环境是否可比。",
+  "description": "INCREMENTAL_CHECK 的 接口提案。任务以 artifact_id 引用 BuildChecker 的基线实际图，并以 environment_id 判断执行环境是否可比。",
   "type": "object",
   "required": ["base_commit", "repository", "baseline", "environment_id"],
   "additionalProperties": false,

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-input-full-check.schema.json",
   "title": "FullCheckJobInput",
-  "description": "FULL_CHECK 的 A03 接口提案。按照 contract-phase 公共约定，任务只引用 environment_id；镜像、项目根目录与构建命令由 Environment Provider 保存。",
+  "description": "FULL_CHECK 的 接口提案。按照 contract-phase 公共约定，任务只引用 environment_id；镜像、项目根目录与构建命令由 Environment Provider 保存。",
   "type": "object",
   "required": ["repository", "environment_id"],
   "additionalProperties": false,
