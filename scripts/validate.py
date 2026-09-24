@@ -268,6 +268,10 @@ def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
           ("删除 verification（无从判断修改是否生效）", lambda i: i.pop("verification")),
           ("删除 verification.verify_command",
            lambda i: i["verification"].pop("verify_command")),
+          ("删除 verification.recheck_command（复检是 recheck_ok 的唯一依据）",
+           lambda i: i["verification"].pop("recheck_command")),
+          ("repository.commit 用缩写（版本比对必须逐字符相等）",
+           lambda i: i["repository"].__setitem__("commit", "31cd2ad")),
           ("删除 repository", lambda i: i.pop("repository"))]),
 
         ("create-full-check-job.request.json", "FULL_CHECK",
@@ -993,6 +997,38 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
     rep.check("报告产物归属的环境就是修复所用的环境",
               report_record.get("environment_id") == repair.get("environment_id"),
               "环境不一致时复构建与复检的结论不可比")
+
+    # 存储域是接口的一部分：按服务命名，人工基线样例用 oracle 域。域不统一时
+    # 「按域映射本地目录」这类约定立刻失效，所以把取值集合钉死在契约里。
+    domains = {"draft", "mdfixer", "buildchecker", "echecker", "oracle"}
+    for path in sorted(SAMPLES.glob("artifact*.json")):
+        record = load_json(path)
+        domain = record["uri"].split("//", 1)[-1].split("/", 1)[0]
+        rep.check(f"{path.name} 的存储域已登记（{domain}）", domain in domains,
+                  f"未登记的存储域：{domain}；新增域必须先写进契约与文档")
+    rep.check("人工基线样例用 oracle 域（不冒充工具产出）",
+              sample("artifact.error-report-003.json")["uri"].startswith("artifact://oracle/")
+              and {f["provenance"] for f in
+                   load_json(ROOT / "fixtures" / "mdfixer" / "error-report.json")["findings"]}
+              <= {"INSTRUCTOR_ORACLE", "MANUAL"},
+              "人工样例的域与人工资质必须对得上")
+
+    rep.check("修复的报告引用指向 ERROR_REPORT 产物",
+              report_record["type"] == "ERROR_REPORT",
+              f"实际 {report_record['type']!r}——修复的输入只能是一份依赖问题报告")
+
+    # 成功路径的版本一致性：报告、请求与产物记录必须指向同一提交
+    # （mock 在执行阶段取回报告后按同一规则判定 REPAIR_6001）
+    for name in ("create-repair-job.request.json", "job.repair.succeeded.json",
+                 "job.repair.no_fix.json"):
+        payload = sample(name)["input"]
+        rep.check(f"{name} 的请求版本与报告所依据的版本一致",
+                  payload["repository"]["commit"] == report_record["source_commit"],
+                  f"请求提交 {payload['repository']['commit']}；"
+                  f"报告依据 {report_record['source_commit']}")
+        rep.check(f"{name} 声明了复检命令",
+                  bool(payload["verification"].get("recheck_command")),
+                  "recheck_ok 是「补丁是否真的消除依赖问题」的唯一依据，必须执行复检")
 
     patch = sample("artifact.patch.json")
     rep.check("修复产物记录了所属环境",

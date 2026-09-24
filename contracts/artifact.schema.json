@@ -30,8 +30,8 @@
     "uri": {
       "type": "string",
       "pattern": "^artifact://[^/]+/[^/]+/.+$",
-      "description": "产物地址，形如 artifact://<存储域>/<job_id>/<文件名>。接收方必须事先约定解析方式：本地路径映射，或经 GET /v1/artifacts/{artifact_id} 下载。",
-      "examples": ["artifact://draft/job-draft01/Dockerfile"]
+      "description": "产物地址，形如 artifact://<存储域>/<job_id>/<文件名>。存储域按**服务**命名：`draft` / `mdfixer` / `buildchecker` / `echecker`；人工基线样例的产物用 `oracle` 域，以免冒充工具产出。取用一律经 GET /v1/artifacts/{artifact_id}，uri 是给人的原始地址，不承担寻址职责。",
+      "examples": ["artifact://draft/job-draft01/Dockerfile", "artifact://oracle/job-oracle-mdfixer01/error-report.json"]
     },
     "media_type": {
       "type": "string",

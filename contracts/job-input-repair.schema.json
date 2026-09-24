@@ -13,11 +13,15 @@
       "required": ["url", "commit"],
       "additionalProperties": false,
       "properties": {
-        "url": { "type": "string", "minLength": 1 },
+        "url": {
+          "type": "string",
+          "pattern": "^https://",
+          "description": "仓库地址，须可由修复环境克隆。"
+        },
         "commit": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$",
-          "description": "完整 commit SHA。修复产出的补丁必须能干净地应用在这个版本上，且报告须属于同一版本——两者不一致时任务以 REPAIR_6001 失败。"
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "**完整 40 位** commit SHA，不接受缩写：报告里的每条发现都带完整 SHA，版本比对必须逐字符相等，缩写会让「同一版本」变成模糊判断。修复产出的补丁必须能干净地应用在这个版本上，且报告须属于同一版本——两者不一致时任务以 REPAIR_6001 失败。"
         }
       }
     },
@@ -63,7 +67,7 @@
     "verification": {
       "type": "object",
       "description": "修复成立与否的判据。构建方式由环境给出，这里只补环境不承载的两条：功能验证与依赖复检。",
-      "required": ["verify_command"],
+      "required": ["verify_command", "recheck_command"],
       "additionalProperties": false,
       "properties": {
         "verify_command": {
@@ -74,7 +78,8 @@
         },
         "recheck_command": {
           "type": "string",
-          "description": "复检依赖问题的命令，通常为重新调用检测服务。缺失时只做构建与功能验证。",
+          "minLength": 1,
+          "description": "复检依赖问题的命令，通常为重新调用检测服务。**必填**：输出里的 `verification.recheck_ok` 是「补丁是否真的消除了依赖问题」的唯一依据，而它只能由复检得出。此字段可选时，recheck_ok 与「fixed 非空则三项为真」的不变式会互相矛盾——不跑复检就无法断言复检通过。",
           "examples": ["make clean && make"]
         }
       }

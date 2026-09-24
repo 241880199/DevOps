@@ -42,6 +42,7 @@
 - **正面**：环境身份有了唯一的生产者与唯一的查询入口；构建方式不再有多份副本；检测与修复的基线对齐从「比字符串」变成「比环境身份」。
 - **代价**：破坏性变更——REPAIR 的调用方必须改用 `environment_id`；`project_subdir` 的语义被环境吸收，调用方需要知道路径基准变了。
 - **未冻结**：`GET /v1/environments/{environment_id}` 仍是环境生成与依赖修复服务提案，需写入 `contract-phase/interfaces/` 并经双方确认；「环境不存在」用哪个错误码共享错误码表尚未定义，mock 暂以 `404` + `EXEC_4002` 承载。
+- **外部评审后的加固（2026-09-24）**：`verification.recheck_command` 由可选改为**必填**——`recheck_ok` 是「补丁是否真的消除依赖问题」的唯一依据，可选时它与「fixed 非空则三项为真」的不变式互相矛盾；`repository.commit` 收紧为完整 40 位（缩写会让「同一版本」变成模糊判断）；人工基线样例的存储域明确为 `oracle` 并进入校验；mock 新增报告可用性检查（类型、所属环境、有无可修目标）与执行阶段的版本比对，并让仓库版本解析与产物记录自检挡住「产出违约却看起来正常」。见 `docs/AI_USAGE.md` 第四轮第 20 条。
 - **遗留缺口**：样例里 `iterations[].build_log_artifact_id` 与 `verification_log_artifact_id` 引用的产物编号尚无对应产物记录；`runtime_capabilities` 目前只声明、未在 mock 中校验。
 - **可执行证据**：`scripts/validate.py` 检查 14 逐条核对以上约定（环境可查、镜像产物归属、DRAFT 产物 `environment_id` 为 null、REPAIR 不内嵌环境、报告编号与 URI 一致、样例提交真实存在）；`scripts/mock_server.py` 提供环境查询端点，未登记的环境使任务在受理阶段被 `400` 拒绝。
 

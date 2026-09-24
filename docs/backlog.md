@@ -37,7 +37,10 @@
 | 基线可比性检查 | `scripts/mock_server.py` 的 `cross_checks` | 基线提交或环境不匹配时被拒绝 |
 | **环境登记与查询** | `scripts/mock_server.py` | DRAFT 受理后产出 `environment_id` 并可经 `GET /v1/environments/{id}` 取到；未登记的环境使任务在受理阶段被 `400` 拒绝 |
 | **交接物摘要核验** | `scripts/mock_server.py` 启动时的静态记录加载 | 产物记录与实物的摘要/大小不符即拒绝启动 |
-| **报告版本检查** | `scripts/mock_server.py` 的 `cross_checks` | `report.commit` 与 `repository.commit` 不一致时以 `400` 拒绝 |
+| **报告版本检查** | `scripts/mock_server.py` 的 `cross_checks` 与执行阶段 | 声明了 `report.commit` 时在受理阶段 `400`；未声明时在执行阶段取回报告后以 `FAILED / REPAIR_6001` 收场 |
+| **报告可用性检查** | `scripts/mock_server.py` 的 `report_reference_problems` | 编号取不到、产物不是 `ERROR_REPORT`、报告属于别的环境、报告不含 `MISSING` 发现——四种情形均在受理阶段被拒绝 |
+| **仓库版本解析** | `scripts/mock_server.py` 的 `resolve_commit` | 缩写与缺省被解析为完整 40 位 SHA；不存在的提交使任务失败，产物记录里不会出现假提交 |
+| **产物记录自检** | `scripts/mock_server.py` 的 `register_artifact` | 登记前按 `artifact.schema.json` 自检，违约即让任务失败 |
 | 固定输入样例（DRAFT） | `fixtures/draft/` | `make` 构建、`./hello` 输出 `hello E3` |
 | **固定输入样例（REPAIR）** | `fixtures/mdfixer/` | 真实源码 + 人工报告 + 参考补丁；报告每条发现的 `location` 都指向磁盘上真实的规则行 |
 | 接口样例 | `contracts/samples/` | 覆盖创建/受理、任务状态、各类产物记录、两个环境记录与错误报告（文件数量以目录为准） |
@@ -98,8 +101,8 @@
 | 产物下载鉴权 | 当前下载接口无鉴权，需明确是否需要 |
 | 任务持久化 | mock 为内存态，进程退出即丢失 |
 | 幂等键 | 创建请求尚未支持幂等重试，需约定字段与语义 |
-| **报告读取与核验** | `report.commit` 未声明时，服务端应取回报告并校验其 `repository.commit`；mock 尚未实现取回逻辑，只在声明了 `report.commit` 时做受理检查 |
-| 报告引用失效 | `REPAIR_6001` 覆盖「报告取不到」，但 mock 未实际构造该场景 |
+| 报告内容的深度校验 | 当前取回报告后只核对版本与「有无 `MISSING` 发现」，未逐条核对 `location` 是否指向真实文件（那一步在 E2 由固定输入样例的校验承担） |
+| 报告引用失效的真实构造 | `REPAIR_6001` 已覆盖编号取不到、类型不符、环境不符、无 `MISSING`、版本不符五种情形；仍未构造「产物记录在、内容被清理」这种引用失效 |
 | `GET /v1/jobs` 分页 | 任务量增长后需要 |
 
 ## 已知限制
@@ -109,8 +112,9 @@
 3. **`FULL_CHECK` / `INCREMENTAL_CHECK` 的 mock 只验证契约**。它会生成符合 Schema 且可下载的空图、空报告，但不运行真实 BuildChecker/EChecker，不能作为检测效果证明。
 4. **产物引用失效未处理**。产物被清理后 URI 仍存在，接收方会遇到「引用有效但内容缺失」，当前未定义该情形下的错误码（修复侧由 `REPAIR_6001` 部分覆盖）。
 5. **`fixtures/` 下的构建未在本机验证**。宿主为 Windows 且无 `make`/`gcc`，验证需在 Linux 容器中进行。
-6. **`fixtures/mdfixer/` 是 E3 的初版**。E3 还需补齐 C0/C1/C2 连续提交与四种声明风格（`TARGET` / `MACRO` / `HYBRID` / `IMPLICIT`）的参考修复对照。
-7. **部分样例引用的产物编号尚无记录**。DRAFT 样例的 `iterations[].build_log_artifact_id` 与修复样例的 `verification_log_artifact_id` 指向的 `BUILD_LOG` / `VERIFY_LOG` 记录尚未提供，检查项也未覆盖——需要时再补，避免样例比契约多出未定义的东西。
+6. **mock 只能解析本仓库的提交**。`resolve_commit` 依据本仓库的 git 对象判断提交是否存在：外部仓库只接受完整 SHA 且无法验证其存在性，缩写与缺省一律失败。这是 mock 没有克隆远端能力的必然结果，不是契约限制。
+7. **`fixtures/mdfixer/` 是 E3 的初版**。E3 还需补齐 C0/C1/C2 连续提交与四种声明风格（`TARGET` / `MACRO` / `HYBRID` / `IMPLICIT`）的参考修复对照。
+8. **部分样例引用的产物编号尚无记录**。DRAFT 样例的 `iterations[].build_log_artifact_id` 与修复样例的 `verification_log_artifact_id` 指向的 `BUILD_LOG` / `VERIFY_LOG` 记录尚未提供，检查项也未覆盖——需要时再补，避免样例比契约多出未定义的东西。
 
 ## 契约变更约定
 

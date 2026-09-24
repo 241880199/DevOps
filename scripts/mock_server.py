@@ -16,6 +16,7 @@ contracts/ 下的契约**可被实际执行验证**：契约能不能表达四�
     POST /v1/repair-jobs                创建依赖修复任务（REPAIR）
     GET  /v1/jobs/{job_id}              查询任务
     GET  /v1/artifacts/{artifact_id}    下载产物
+    GET  /v1/environments/{environment_id}  查询环境定义
 
 执行模拟：
     四类任务均返回符合专用输出契约的模拟结果。FULL_CHECK 与
@@ -37,6 +38,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -154,6 +156,35 @@ def new_job_id() -> str:
     return "job-" + uuid.uuid4().hex[:8]
 
 
+SELF_REPO_URL = "https://github.com/241880199/DevOps"
+
+
+class JobAbort(Exception):
+    """构建器判定任务必须以失败收场时抛出；run_job 据此写入终态与错误码。"""
+
+    def __init__(self, code: str, stage: str, message: str, detail: str = "") -> None:
+        super().__init__(message)
+        self.code, self.stage, self.message, self.detail = code, stage, message, detail
+
+
+def resolve_commit(commit: str | None, repo_url: str = "") -> str | None:
+    """把环境生成任务输入里的版本解析成**仓库中真实存在**的完整 40 位 SHA。
+
+    两件事一起做，缺一不可：产物记录要求完整 SHA，而输入允许缺省或缩写；同时记进
+    产物的必须是真实存在的提交——格式合法但不存在的 SHA 会让下游拿到一条永远对不上
+    的追溯信息，而它在 schema 上完全合法。
+
+    mock 没有克隆远端的能力：URL 不是本仓库时只采用完整 SHA（无法验证存在性），
+    缩写与缺省一律解析失败。
+    """
+    is_self = repo_url.rstrip("/").removesuffix(".git") == SELF_REPO_URL
+    if not is_self:
+        return commit if commit and re.fullmatch(r"[0-9a-f]{40}", commit) else None
+    proc = subprocess.run(["git", "rev-parse", "--verify", f"{commit or 'HEAD'}^{{commit}}"],
+                          cwd=ROOT, capture_output=True, text=True, check=False)
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
 # ------------------------------------------------------------------ 输入校验
 
 def schema_errors(schema_name: str, instance) -> list[str]:
@@ -254,21 +285,65 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
                 f"（REPAIR_6001：报告失效，修复拒绝执行）"
             )
 
-        # 报告按全局产物编号取回。编号找不到，修复就没有可依据的目标；
-        # artifact_uri 是可选的对照字段，填了必须与产物记录一致。
-        record = ARTIFACTS.get(report["artifact_id"])
-        if record is None:
-            errs.append(
-                f"report/artifact_id: 未登记产物 {report['artifact_id']}。"
-                f"报告必须先可经 GET /v1/artifacts/{{artifact_id}} 取回"
-            )
-        elif report.get("artifact_uri") and report["artifact_uri"] != record.get("uri"):
-            errs.append(
-                f"report/artifact_uri: {report['artifact_uri']} "
-                f"与产物记录的 uri {record.get('uri')} 不一致"
-            )
+        errs.extend(report_reference_problems(payload))
 
     return errs
+
+
+def report_reference_problems(payload: dict) -> list[str]:
+    """修复输入是否可用：取得到、是报告、属于同一环境、且确有可修的东西。
+
+    只校验「编号存在」远远不够：编号可以指向一份 Dockerfile 或一份补丁，也可以
+    指向另一个环境的报告。那样修复会在错误的输入上跑完全程，而结论看起来完全正常。
+    artifact_uri 是可选的对照字段，填了必须与产物记录一致。
+    """
+    errs = []
+    report = payload["report"]
+    record = ARTIFACTS.get(report["artifact_id"])
+    if record is None:
+        return [
+            f"report/artifact_id: 未登记产物 {report['artifact_id']}。"
+            f"报告必须先可经 GET /v1/artifacts/{{artifact_id}} 取回"
+        ]
+
+    if record.get("type") != "ERROR_REPORT":
+        errs.append(
+            f"report/artifact_id: 产物 {report['artifact_id']} 的类型是 "
+            f"{record.get('type')!r}，不是 ERROR_REPORT——修复的输入只能是一份依赖问题报告"
+        )
+    if record.get("environment_id") != payload.get("environment_id"):
+        errs.append(
+            f"report/artifact_id: 报告所属环境 {record.get('environment_id')!r} "
+            f"与本次环境 {payload.get('environment_id')!r} 不一致——"
+            f"不同环境下的依赖结论不可比"
+        )
+    if report.get("artifact_uri") and report["artifact_uri"] != record.get("uri"):
+        errs.append(
+            f"report/artifact_uri: {report['artifact_uri']} "
+            f"与产物记录的 uri {record.get('uri')} 不一致"
+        )
+    findings = missing_findings(record)
+    if findings is not None and not findings:
+        errs.append(
+            "report/artifact_id: 报告里没有 MISSING 发现——没有可修复的目标时"
+            "「修复」无意义，请求不被受理（REPAIR_6001）"
+        )
+    return errs
+
+
+def missing_findings(record: dict):
+    """取回报告内容并筛出 MISSING 发现；内容不可解析时返回 None（不据此拒绝）。"""
+    raw = record.get("_blob")
+    if not raw:
+        return None
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(doc, dict) or not isinstance(doc.get("findings"), list):
+        return None
+    return [f for f in doc["findings"]
+            if isinstance(f, dict) and f.get("type") == "MISSING"]
 
 
 # ------------------------------------------------------------------ 产物登记
@@ -282,7 +357,7 @@ def register_artifact(job_id: str, job_type: str, commit: str, blob: bytes,
     属于这种情形，见 contracts/artifact.schema.json 的对应约束。
     """
     art_id = artifact_type.lower().replace("_", "-") + "-" + uuid.uuid4().hex[:6]
-    ARTIFACTS[art_id] = {
+    record = {
         "artifact_id": art_id,
         "type": artifact_type,
         "uri": f"artifact://{SERVICE_DOMAIN[job_type]}/{job_id}/{filename}",
@@ -295,6 +370,15 @@ def register_artifact(job_id: str, job_type: str, commit: str, blob: bytes,
         "source_commit": commit,
         "_blob": blob,
     }
+    # 产物记录也要过契约：source_commit 必须是完整 40 位 SHA、environment_id 的适用范围
+    # 由存储域决定。这层自检拦住的是「产出违约却看起来正常」——那种问题只有下游拿到
+    # 记录时才会暴露，而那时已经离出错点很远了。
+    problems = schema_errors(
+        "artifact", {k: v for k, v in record.items() if not k.startswith("_")})
+    if problems:
+        raise JobAbort("EXEC_4002", "EXEC",
+                       "mock 登记的产物记录不符合 artifact 契约。", "; ".join(problems))
+    ARTIFACTS[art_id] = record
     return art_id
 
 
@@ -342,7 +426,16 @@ def load_static_records() -> None:
 def output_for_draft(job: dict) -> dict:
     """环境生成：产出 Dockerfile 与镜像产物，并登记一个可查询的环境。"""
     payload = job["input"]
-    commit = payload["repository"].get("commit", "")
+    commit = resolve_commit(payload["repository"].get("commit"),
+                            payload["repository"].get("url", ""))
+    if commit is None:
+        raise JobAbort(
+            "EXEC_4002", "EXEC",
+            "无法解析仓库版本：输入给的 commit 不是仓库中真实存在的提交。",
+            f"input.repository.commit={payload['repository'].get('commit')!r}；"
+            f"mock 只能解析本仓库（{SELF_REPO_URL}）的提交，"
+            f"外部仓库只接受完整 SHA。",
+        )
     build = payload["build"]
     subdir = (build.get("project_subdir") or ".").strip("/")
     workdir = "/workspace" if subdir in ("", ".") else f"/workspace/{subdir}"
@@ -394,6 +487,18 @@ def output_for_draft(job: dict) -> dict:
 
 
 def output_for_repair(job: dict) -> dict:
+    payload = job["input"]
+    # 受理阶段只在请求声明了 report.commit 时比对；没声明时，要到「取回报告」这一步
+    # 才知道报告属于哪个版本——这正是 REPAIR_6001 的意义：不拿失效的报告去生成补丁。
+    report_commit = ARTIFACTS.get(payload["report"]["artifact_id"], {}).get("source_commit")
+    if report_commit and report_commit != payload["repository"]["commit"]:
+        raise JobAbort(
+            "REPAIR_6001", "REPAIR",
+            "修复输入不可用：报告所依据的源码版本与请求的 repository.commit 不一致，报告失效。",
+            f"请求 commit {payload['repository']['commit'][:8]}…，"
+            f"报告所依据的 commit {report_commit[:8]}…；请求未声明 report.commit，"
+            f"故在执行阶段取回报告后才发现。",
+        )
     patch = (
         "--- a/Makefile\n"
         "+++ b/Makefile\n"
@@ -544,7 +649,19 @@ def run_job(job_id: str, should_fail: bool, should_analysis_fail: bool) -> None:
             "INCREMENTAL_CHECK": output_for_incremental_check,
             "REPAIR": output_for_repair,
         }[job["job_type"]]
-        builder(job)
+        try:
+            builder(job)
+        except JobAbort as abort:
+            job.pop("output", None)
+            job["status"] = "FAILED"
+            job["error"] = {
+                "code": abort.code,
+                "stage": abort.stage,
+                "message": abort.message,
+                "detail": abort.detail,
+                "at": now_iso(),
+            }
+            return
 
         output_errors = schema_errors(OUTPUT_SCHEMA[job["job_type"]], job["output"])
         if output_errors:
