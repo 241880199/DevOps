@@ -44,4 +44,4 @@ BuildChecker 成功输出分别引用以下三个产物：
 - `contracts/dependency-graph.schema.json`
 - `contracts/job-output-full-check.schema.json`
 - `contracts/samples/job.full-check.succeeded.json`
-- `docs/接口说明.md` 第 10 节
+- `docs/interfaces/全量依赖检测.md`

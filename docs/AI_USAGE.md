@@ -1,5 +1,7 @@
 # AI_USAGE
 
+> 本文是按轮次记录的设计过程。其中引用的 `docs/接口说明.md`、`docs/变更说明-2.0迁移.md`、`docs/接口交换记录.md`、`docs/检测侧任务清单.md` 已按整理计划删除（内容并入 `docs/interfaces/`、`docs/contracts/` 与 `contracts/samples/README.md`），如需查看原文可从 git 历史取回。
+
 本文件记录设计过程中 AI 的参与情况：AI 提出了什么、人工如何判断、如何验证。
 目的是让设计决策可追溯，而不是事后追认。
 

@@ -53,4 +53,4 @@
 - `contracts/environment.schema.json`、`contracts/repository.schema.json`
 - `contracts/samples/environment.*.json`、`artifact.image-ref-*.json`
 - `scripts/validate.py`（检查 06、14）、`scripts/mock_server.py`
-- `docs/接口说明.md`（第 4.1 节、第 9 节、第 11 节、第 16 节）
+- `docs/interfaces/生成构建环境.md`、`修复缺失依赖.md`、`查询环境定义.md`、`下载产物.md`

@@ -58,4 +58,4 @@ EChecker 成功输出同时包含：
 - `contracts/job-output-incremental-check.schema.json`
 - `contracts/dependency-graph.schema.json`
 - `contracts/samples/job.incremental-check.succeeded.json`
-- `docs/接口说明.md` 第 10 节
+- `docs/interfaces/增量依赖检测.md`

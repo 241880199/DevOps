@@ -22,7 +22,7 @@
 
 ## 迁移须知（1.0 → 2.0）
 
-四类任务已统一到 2.0（见 `docs/ADR/ADR-011` 与 `docs/变更说明-2.0迁移.md`）。**如果你此前已经检出过本仓库**，
+四类任务已统一到 2.0（见 `docs/ADR/ADR-011`）。**如果你此前已经检出过本仓库**，
 下面三件事会让你的本地状态与远端不一致，按对应的处置做一次即可。
 
 ### 1. 工作区行尾（必做一次）
@@ -53,9 +53,9 @@ git rm --cached -r -q . && git reset --hard
 
 | 旧路径 | 新路径 |
 | --- | --- |
-| `docs/A03_TASKS.md` | `docs/检测侧任务清单.md` |
-| `docs/配对组接口交换记录.md` | `docs/接口交换记录.md` |
 | `fixtures/a03/` | `fixtures/detection/` |
+
+另有四份文档已按整理计划删除，内容并入 `docs/interfaces/`、`docs/contracts/` 与 `contracts/samples/README.md`：`接口说明.md`、`变更说明-2.0迁移.md`、`接口交换记录.md`、`检测侧任务清单.md`。
 
 ## 目录结构
 
@@ -102,13 +102,9 @@ docs/
     查询任务.md                        GET /v1/jobs/{job_id}
     下载产物.md                        GET /v1/artifacts/{artifact_id}
     查询环境定义.md                    GET /v1/environments/{environment_id}
-  接口说明.md                          ★ 面向下游消费方的对接文档
-  变更说明-2.0迁移.md                  1.0 → 2.0 的字段对照、行为收紧与对接方待办
   ADR/                                架构决策记录 001–011
   AI_USAGE.md                         设计过程与 AI 使用记录
-  接口交换记录.md               与依赖检测服务的三轮接口交换（含待确认项）
   backlog.md                          进展与待办
-  检测侧任务清单.md                        依赖检测服务的 E2 验收清单
 ```
 
 ## 快速开始
@@ -178,8 +174,9 @@ docker run   --rm mdfixer-fixture       # 预期输出 12
 
 **报告必须属于当前源码版本。** 修复请求用 `report.commit` 把版本校验前移到受理阶段，不一致立即拒绝，不白跑一次调度。理由见 `docs/ADR/ADR-006`。
 
-下游对接请看 **`docs/接口说明.md`**，其中含字段用途、联调检查清单与完整走查。
-与依赖检测服务的接口交换记录见 **`docs/接口交换记录.md`**。
+下游对接请看 **`docs/interfaces/`**——七条接口各一份，含字段语义与可执行的最小检查；
+公共结构的语义边界见 **`docs/contracts/`**，样例覆盖场景见 **`contracts/samples/README.md`**。
+历次接口交换与本轮的往复见 **`docs/AI_USAGE.md`** 的第三、四轮记录。
 
 ## 运行环境
 
