@@ -3,7 +3,7 @@
 本文件记录设计过程中 AI 的参与情况：AI 提出了什么、人工如何判断、如何验证。
 目的是让设计决策可追溯，而不是事后追认。
 
-按阶段分三轮：**第一轮**是契约从零搭起（E1），**第二轮**是在已有契约上找缺口（E2，B 组），**第三轮**补齐 A03 的检测契约与设计记录。
+按阶段分三轮：**第一轮**是契约从零搭起（E1），**第二轮**是在已有契约上找缺口（E2，环境生成与依赖修复服务），**第三轮**补齐依赖检测服务的检测契约与设计记录。
 三轮的问题类型不同，分开记录。
 
 ## 使用的工具与范围
@@ -25,15 +25,16 @@
 - **AI 建议**：把 Dockerfile、构建日志等作为独立产物记录，任务响应只放 `artifact_id` 与 URI。
 - **处理**：采纳。
 - **人工补充**：AI 初版只给了 `artifact_id` / `type` / `uri` / `media_type` / `producer_job_id`。人工追加了 `sha256` 与 `source_commit` 两个字段——前者用于跨服务交接时核验内容完整，后者保证任一产物都能回溯到它产出的源码版本。仅凭 AI 初版，产物与源码版本的对应关系会丢失。
-- **验证**：`scripts/validate.py` 检查 01 校验 `contracts/samples/artifact.json`；`scripts/mock_server.py` 的下载接口实际返回了 539 字节内容，证明引用可被下游解析。
+- **验证**：`scripts/validate.py` 检查 01 校验 `contracts/samples/artifact.json`；`scripts/mock_server.py` 的下载接口实际返回了 522 字节内容，证明引用可被下游解析。
 
 ### 2. 样例中的 sha256 使用了占位值
 
 - **AI 产出**：`contracts/samples/artifact.json` 中的 `sha256` 被填为 `e3b0c442...b855`。
 - **问题**：该值是**空字符串的 SHA-256**，是一个看起来合理、实际无意义的占位符。若不核对，会让样例给人「已验证」的错觉。
-- **处理**：**人工核算真实摘要后替换**。取值来自 `fixtures/draft/docker/Dockerfile.ok` 的实际内容摘要（`4120822b...5846`，539 字节），`size_bytes` 同步更正。
+- **处理**：**人工核算真实摘要后替换**。取值来自 `fixtures/draft/docker/Dockerfile.ok` 的实际内容摘要（`6a2f05c2...41fd`，522 字节），`size_bytes` 同步更正。
 - **理由**：样例是契约的一部分，样例中的数字必须真实可取，否则下游会照抄错误结构。
 - **后续加固**：该问题后来被固化为自动检查（`validate.py` 检查 06）。此后参考 Dockerfile 只要改动一个字符，摘要不一致就会直接导致校验失败——这类「看起来合理但已过期」的数字不再依赖人工发现。
+- **更正（2026-09-24）**：当时核算用的是 Windows 工作区那份被 `core.autocrlf` 转成 CRLF 的字节（539 字节、`4120822b...5846`），只在同样行尾的工作区里成立；POSIX 检出上该文件是 522 字节，记录随之失真。修复服务侧同时存在镜像问题——`fixtures/mdfixer/reference.patch` 记的是 LF 口径（199 字节），在 Windows 工作区反而核不上。根因是同一条：`.gitattributes` 只固定了依赖检测服务侧可校验文件的行尾，环境生成与依赖修复服务侧两个被逐字节引用的文件没有行尾策略。现已在 `.gitattributes` 补上 `fixtures/draft/**` 与 `fixtures/mdfixer/**`，记录值统一改为 LF 口径。
 
 ### 3. DRAFT 样例项目是否引入第三方依赖
 
@@ -93,7 +94,7 @@ AI 在结构设计与实现层面提供了有效加速，但在两处出现了�
 
 ---
 
-# 第二轮（E2 阶段，B 组）
+# 第二轮（E2 阶段，环境生成与依赖修复服务）
 
 第一轮记录的是契约从零搭起的过程。这一轮是**在已有契约上找缺口**——交付物看起来是完整的，
 问题都藏在「断言了但没验证」的地方。以下四条按发现顺序记录。
@@ -152,7 +153,7 @@ AI 在结构设计与实现层面提供了有效加速，但在两处出现了�
 - **处理**：**采纳但限定为可选**。在 `job-output-draft.schema.json` 中新增可选
   `configuration_id`，由环境产出方回报，检测方直接沿用。理由与第 6 条一致：可选字段是
   兼容变更，对方接受或修订的成本都很低；若设为必填则破坏兼容，必须递增 `schema_version`，
-  在 E2 阶段代价过大。决策记入 `docs/ADR/ADR-007`，状态标为**待 A 组确认**。
+  在 E2 阶段代价过大。决策记入 `docs/ADR/ADR-007`，状态标为**待依赖检测服务确认**。
 - **验证**：`contracts/samples/job.succeeded.json` 已回报该字段；`mock_server.py` 的
   `output_for_draft` 同步填充。
 
@@ -178,9 +179,9 @@ python scripts/mock_server.py  # REPAIR 报告版本检查与 DRAFT 输出实测
 新增检查：10（修复失败边界与错误码）、11（修复固定输入与磁盘文件一致）；
 扩展检查：06（摘要核验覆盖补丁产物）、08（REPAIR 两支不变式）。
 
-# 第三轮（E2 阶段，A 组）
+# 第三轮（E2 阶段，依赖检测服务）
 
-本轮使用 Codex，范围是补齐 A03 负责的全量/增量检测输出契约。
+本轮使用 Codex，范围是补齐依赖检测服务负责的全量/增量检测输出契约。
 ### 11. 检测任务只有输入契约，没有专用输出契约
 
 - **来源**：仓库已有 `job-input-full-check.schema.json` 与 `job-input-incremental-check.schema.json`，但输出侧只有 DRAFT 和 REPAIR 的专用 schema；`task.schema.json` 只约束 `output` 是一个对象。
@@ -200,22 +201,22 @@ python scripts/mock_server.py  # REPAIR 报告版本检查与 DRAFT 输出实测
 
 
 
-### 13. A 组关键输出只有 Schema，没有对应 ADR
+### 13. 依赖检测服务关键输出只有 Schema，没有对应 ADR
 
-- **来源**：A03 新增了 `dependency-graph.schema.json`、`job-output-full-check.schema.json` 与 `job-output-incremental-check.schema.json`，但 `docs/ADR/` 中原有记录只覆盖公共任务模型、产物交接、错误语义和 B 组的 DRAFT / REPAIR 决策。
+- **来源**：依赖检测服务新增了 `dependency-graph.schema.json`、`job-output-full-check.schema.json` 与 `job-output-incremental-check.schema.json`，但 `docs/ADR/` 中原有记录只覆盖公共任务模型、产物交接、错误语义和环境生成与依赖修复服务的 DRAFT / REPAIR 决策。
 - **问题**：Schema 表达了最终字段，却没有记录为什么 BuildChecker 要分别交付实际图、声明图和错误报告，也没有记录为什么 EChecker 要同时返回当前完整报告与新增/消除变化。评审者只能看到结果，无法追溯备选方案和代价。
 - **AI 建议**：分别新增 BuildChecker 输出组织和 EChecker 基线语义的 ADR，避免把两项独立决策压缩成一份过大的记录。
 - **处理**：采纳。新增 `docs/ADR/ADR-008-BuildChecker输出与依赖图交付.md` 与 `docs/ADR/ADR-009-EChecker基线身份与变化表达.md`。
-- **人工补充**：两份 ADR 只记录 A03 的检测服务决策，不修改 ADR-001 至 ADR-007，也不替 B03 确认 DRAFT、REPAIR 或部署方式。
-- **验证**：`docs/A03_TASKS.md` 与 `docs/backlog.md` 已加入两份 ADR 的索引，`docs/接口说明.md` 的 FULL_CHECK / INCREMENTAL_CHECK 输出段落已链接对应决策记录。
+- **人工补充**：两份 ADR 只记录 检测服务的决策，不修改 ADR-001 至 ADR-007，也不替环境生成与依赖修复服务确认 DRAFT、REPAIR 或部署方式。
+- **验证**：`docs/检测侧任务清单.md` 与 `docs/backlog.md` 已加入两份 ADR 的索引，`docs/接口说明.md` 的 FULL_CHECK / INCREMENTAL_CHECK 输出段落已链接对应决策记录。
 
-### 14. ADR 确认状态与配对记录不一致
+### 14. ADR 确认状态与对侧记录不一致
 
-- **来源**：ADR-007 仍标为“待 A 组确认”，但 `docs/A03_TASKS.md` 和 `docs/配对组接口交换记录.md` 已写明 A03 接受由 DRAFT 回报 `configuration_id`；ADR-002 已采纳 URI 引用方案，但实际读取方式仍未选择；ADR-006 中 `REPAIR_6001` 的两种载体也仍在待确认列表。
-- **问题**：同一决定在不同文件中同时呈现“已接受”和“待确认”，容易让评审者误判双方是否已经达成一致。A03 也不能通过直接改写 B03 的既有 ADR 来代替配对确认。
-- **AI 建议**：保留既有 ADR 原文，由 A03 在自己的任务清单和配对回复中记录接受范围；需要双方决定的 URI 读取方式、镜像交付位置和错误载体继续保留为未决事项。
-- **处理**：采纳“不修改已有 ADR”的边界。本轮只新增 A03 的 ADR-008、ADR-009，并保留现有联合待确认项。
-- **人工补充**：ADR-007 的最终状态应由原决策维护方在收到 A03 回复后更新；A03 的接受证据继续以 `docs/A03_TASKS.md` 和 `docs/配对组接口交换记录.md` 为准。
+- **来源**：ADR-007 仍标为“待依赖检测服务确认”，但 `docs/检测侧任务清单.md` 和 `docs/接口交换记录.md` 已写明依赖检测服务接受由 DRAFT 回报 `configuration_id`；ADR-002 已采纳 URI 引用方案，但实际读取方式仍未选择；ADR-006 中 `REPAIR_6001` 的两种载体也仍在待确认列表。
+- **问题**：同一决定在不同文件中同时呈现“已接受”和“待确认”，容易让评审者误判双方是否已经达成一致。依赖检测服务也不能通过直接改写环境生成与依赖修复服务的既有 ADR 来代替对侧确认。
+- **AI 建议**：保留既有 ADR 原文，由依赖检测服务在自己的任务清单和对侧回复中记录接受范围；需要双方决定的 URI 读取方式、镜像交付位置和错误载体继续保留为未决事项。
+- **处理**：采纳“不修改已有 ADR”的边界。本轮只新增依赖检测服务的 ADR-008、ADR-009，并保留现有联合待确认项。
+- **人工补充**：ADR-007 的最终状态应由原决策维护方在收到依赖检测服务回复后更新；依赖检测服务的接受证据继续以 `docs/检测侧任务清单.md` 和 `docs/接口交换记录.md` 为准。
 - **验证**：确认 ADR-001 至 ADR-007 没有内容变更；新增文件编号从 ADR-008 开始，未覆盖已有记录。
 
 
@@ -223,35 +224,34 @@ python scripts/mock_server.py  # REPAIR 报告版本检查与 DRAFT 输出实测
 ### 15. 检测类 mock 成功输出违反自身 Schema，且缺少分析失败样例
 
 - **来源**：`scripts/mock_server.py` 对 `FULL_CHECK` / `INCREMENTAL_CHECK` 使用通用
-  `output_for_other`，只返回 `note`，随后却把任务标为 `SUCCEEDED`；该对象不符合两类
-  A03 专用输出 Schema。错误码表已定义 `ANALYSIS_5001`，但没有对应失败样例。
+  `output_for_other`，只返回 `note`，随后却把任务标为 `SUCCEEDED`；该对象不符合两类依赖检测服务专用输出 Schema。错误码表已定义 `ANALYSIS_5001`，但没有对应失败样例。
 - **问题**：HTTP 运行结果与静态成功样例相互矛盾；校验脚本只能证明样例正确，不能防止
-  mock 在运行时生成非法成功结果。分析器崩溃也缺少可供配对组复核的任务形状。
+  mock 在运行时生成非法成功结果。分析器崩溃也缺少可供对侧服务复核的任务形状。
 - **AI 建议**：为两类检测分别生成动态空图和空报告，登记为当前 job 的可下载 artifact；
   在写入 `SUCCEEDED` 前用专用输出 Schema 自检，并补充 `ANALYSIS_5001` 失败样例和
   可复现的 mock 注入路径。
 - **处理**：采纳。mock 现在为 FULL_CHECK 生成实际图、声明图和错误报告，为
   INCREMENTAL_CHECK 生成当前实际图、错误报告及空变化集；URL 以 `fail-analysis` 结尾时
   返回 `FAILED / ANALYSIS_5001`。空图和空报告明确是契约模拟，不冒充真实检测结果。
-- **人工补充**：修改仅覆盖 A03 检测任务；DRAFT / REPAIR 的输出逻辑和 B03 样例未改动。
+- **人工补充**：修改仅覆盖依赖检测服务检测任务；DRAFT / REPAIR 的输出逻辑和环境生成与依赖修复服务样例未改动。
 - **验证**：`scripts/validate.py` 校验新失败样例及错误语义；HTTP 实测两类成功输出均通过
   专用 Schema、所有输出 artifact 均可下载，失败注入不携带 `output`。
 
-### 16. 本地 A03 契约与双方公共结构发生破坏性冲突
+### 16. 本地依赖检测服务契约与双方公共结构发生破坏性冲突
 
 - **来源**：共同仓库 `241880199/DevOps` 的 `contract-phase` 分支提交
   `431a7438a2487ef505b528e7bd781b2c2563862b`。
 - **问题**：共同结构用 `environment_id` 取代 `configuration_id`，Job 不再内嵌环境定义，
   Repository 要求 `canonical_url` 和完整 SHA；同时产出方矩阵不允许 EChecker 产出
   `ACTUAL_GRAPH`。本地旧 Schema 虽能通过自身测试，却不符合双方共同口径。
-- **AI 建议**：保留旧 ADR 作为历史，新增同步 ADR；只修改 A03 专有接口和公共结构，
-  不替 B03 决定 DRAFT / REPAIR 的第二阶段字段；将可评审提案单独整理，提交到共同分支后
+- **AI 建议**：保留旧 ADR 作为历史，新增同步 ADR；只修改依赖检测服务专有接口和公共结构，
+  不替环境生成与依赖修复服务决定 DRAFT / REPAIR 的第二阶段字段；将可评审提案单独整理，提交到共同分支后
   再称为冻结契约。
-- **处理**：采纳。新增 ADR-010 与 `docs/A03_CONTRACT_PHASE_PROPOSAL.md`；A03 输入改为
+- **处理**：采纳。新增 ADR-010 与 `docs/检测侧接口提案.md`；依赖检测服务输入改为
   Repository + `environment_id`，增量基线改用 Artifact ID，EChecker 输出移除实际图；
   Job 契约版本递增为 `2.0`。
 - **人工补充**：个人协作记录按共同分支规则写入 `contract-phase/records/`，本实现分支只
-  保留迁移说明和 Git 历史。DRAFT / REPAIR 旧专有字段明确标为待 B03 迁移。
+  保留迁移说明和 Git 历史。DRAFT / REPAIR 旧专有字段明确标为待环境生成与依赖修复服务迁移。
 - **验证**：自动校验新增共同契约断言，并实测 FULL_CHECK、INCREMENTAL_CHECK 和
   `ANALYSIS_5001` 路径。
 
@@ -262,3 +262,68 @@ python scripts/validate.py  # 151 项契约检查，退出码 0
 ```
 
 已完成 JSON/Python 语法检查和 151/151 项契约校验。
+
+# 第四轮（E2 阶段，环境生成与依赖修复服务）
+
+本轮使用 Claude Code，范围是跟进远端并入的检测侧改动、修正校验失败，并完成环境生成与依赖修复服务
+（DRAFT / REPAIR）向统一任务模型 2.0 的迁移。
+
+> 第二轮、第三轮条目中出现的 `configuration_id`、内嵌 `environment` 与基线 URI 是**当时的口径**，
+> 本轮迁移后由 `environment_id`、环境查询端点与 Artifact ID 取代。旧条目作为历史记录保留，不回改。
+
+### 17. 校验失败：同一条摘要不可能在两种检出下都成立
+
+- **来源**：`python scripts/validate.py` 报 2 项失败，均为 `artifact.patch.json` 的 `sha256` / `size_bytes` 与实物不符。
+- **AI 诊断**：问题不在数字填错，而在**行尾策略漏项**。`fixtures/draft/docker/Dockerfile.ok` 的提交态是
+  522 字节（LF），Windows 工作区被 `core.autocrlf` 转成 539 字节（CRLF），而记录取的是 CRLF 口径；
+  同一批里 `fixtures/mdfixer/reference.patch` 记的却是 LF 口径（199 字节），在 Windows 反而不符。
+  `.gitattributes` 只固定了检测侧的文件行尾，环境生成与依赖修复服务侧两个被逐字节引用的文件没有策略——
+  **没有任何一个检出能同时让两条记录成立**。
+- **处理**：采纳根因判断，但不采纳「把记录改成当前工作区的值」这种修法——那只是把失败推给另一种检出。
+  改为在 `.gitattributes` 固定 `fixtures/draft/**` 与 `fixtures/mdfixer/**` 为 `eol=lf`，
+  `Dockerfile.ok` 的记录改为 LF 口径；并新增两个 `image-ref.txt` 与一份人工报告的摘要记录，
+  让新的环境、镜像与报告样例也逐字节可核。
+- **人工补充**：AI 曾试图用 `git checkout-index -f`、`git restore` 刷新工作区，两步都无效——
+  git 不会重写「干净」的文件。最终按提交态 blob 逐字节归一化、断言与 blob 一致后才写回。
+- **验证**：`scripts/validate.py` 由 172/174 变为 174/174 全通过。
+
+### 18. 环境生成与依赖修复服务迁移到统一任务模型 2.0（八条约定）
+
+- **来源**：依赖检测服务已按 `contract-phase` 完成检测侧迁移，但 DRAFT 仍不产出 `environment_id`，
+  检测样例只能引用一个悬空的环境；`docs/接口说明.md` 多处仍在描述检测方消费 `configuration_id`，
+  按该文档拼出的请求会被 `400` 拒绝。
+- **AI 建议**：先把待约定事项逐条写成「谁与谁、落在哪个文件、用哪条校验拦住反例」的清单，
+  再动 schema；并给出两个备选——DRAFT 输入改成与 Environment 同形，或输入保持不变、只对齐输出。
+- **处理**：八条约定全部落成契约——`environment_id` 取代 `configuration_id`；
+  新增 `GET /v1/environments/{environment_id}`（环境生成与依赖修复服务提案）；`image_ref` 改为 `IMAGE_REF` 产物编号；
+  REPAIR 输入去内嵌环境，改 `environment_id` + `verification`；报告改为必填 `artifact_id` +
+  可选 `artifact_uri`；DRAFT 产物 `environment_id` 为 `null`；四类任务统一 `schema_version=2.0`；
+  存储域按服务命名。决定与代价见 `docs/ADR/ADR-011`。
+- **人工决定（与 AI 初版建议不同、或由人拍板的部分）**：
+  - **DRAFT 输入保持不变**——AI 初版建议改成与 Environment 同形；人指出 DRAFT 是环境的产生方而非引用方，
+    且「项目根」在仓库内与容器内是两种语义，同名字段装两种含义会埋歧义；
+  - **`artifact_uri` 保留为可选**——AI 建议只留 `artifact_id`；人选择两者都留，并加一致性校验拦住不符的填法；
+  - **验证命令留在任务输入**——不并入公共 Environment 对象，避免越权修改共享契约；
+  - **样例输出改回 `hello E3`**——此前为统一命名风格改成 `hello draft`；人指出固定预期输出属于测试判据，
+    应与实验基线逐字一致，文档散文才适用措辞规则。
+- **验证**：`scripts/validate.py` 新增检查 14（环境交接）；`scripts/mock_server.py` 实测四类任务、
+  环境查询，以及 5 条反例（未登记环境、uri 与产物记录不符、内嵌环境定义、仍带 `project_subdir`、
+  报告版本不符）均按预期被拒。
+
+### 19. mock 里一处会让任务挂死的锁
+
+- **来源**：端到端实测时 DRAFT 任务停在 `RUNNING`，`GET /v1/jobs/{job_id}` 永久阻塞。
+- **AI 诊断**：`output_for_draft` 在 `run_job` 已持有 `LOCK` 的情况下再次 `with LOCK`，
+  非重入锁自锁；后台线程挂住后，`GET` 也拿不到锁。
+- **处理**：采纳。去掉内层加锁，并注明该函数由持有锁的调用方进入。
+- **验证**：重跑端到端脚本，三类任务均到 `SUCCEEDED`，环境可查、镜像引用与补丁均可下载。
+
+## 验证方式（第四轮）
+
+```bash
+python scripts/validate.py      # 全部通过，退出码 0
+python scripts/mock_server.py   # 端到端实测：四类任务 + 环境查询 + 反例拒绝
+```
+
+检查项数量随契约增长，文档不再写死数字——写死的数字过期后，读者会以为「检查通过了」，
+实际只是数字没更新；以命令输出为准。本轮实测由第三轮的 151 项增至 216 项。
