@@ -5,9 +5,9 @@
   "job_type": "REPAIR",
   "status": "FAILED",
   "execution": {
-    "created_at": "2026-09-20T11:40:00Z",
-    "started_at": "2026-09-20T11:40:01Z",
-    "finished_at": "2026-09-20T11:40:06Z",
+    "created_at": "2026-09-20T11:40:00.000Z",
+    "started_at": "2026-09-20T11:40:01.000Z",
+    "finished_at": "2026-09-20T11:40:06.000Z",
     "attempt": 1
   },
   "input": {
@@ -38,6 +38,6 @@
     "stage": "REPAIR",
     "message": "修复输入不可用：报告所依据的源码版本与请求的 repository.commit 不一致，报告失效。",
     "detail": "请求 commit d47a1528…，报告 repository.commit 为 b06e66ec…；请求未声明 report.commit，故在执行阶段取回报告后才发现。补丁若按该报告生成，将无法干净地应用到目标版本上。",
-    "at": "2026-09-20T11:40:06Z"
+    "at": "2026-09-20T11:40:06.000Z"
   }
 }

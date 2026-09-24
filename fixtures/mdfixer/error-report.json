@@ -2,15 +2,16 @@
   "schema_version": "1.0",
   "repository": {
     "url": "https://github.com/241880199/DevOps",
+    "canonical_url": "https://github.com/241880199/DevOps",
     "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
   },
-  "configuration_id": "cc-O2",
+  "environment_id": "env-mdfixer-reference",
   "produced_by": {
     "detector": "INSTRUCTOR_ORACLE",
     "job_id": "job-oracle-mdfixer01",
     "mode": "MANUAL"
   },
-  "generated_at": "2026-09-20T09:40:00Z",
+  "generated_at": "2026-09-20T09:40:00.000Z",
   "summary": {
     "missing": 2,
     "redundant": 1

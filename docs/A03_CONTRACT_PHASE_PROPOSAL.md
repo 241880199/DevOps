@@ -1,0 +1,52 @@
+# A03 第二阶段接口提案
+
+> 目标位置：共同仓库 `contract-phase/interfaces/`。本文是便于双方评审的本地提案，
+> 不替代共同分支中的冻结文档。
+
+## FULL_CHECK
+
+- 生产侧：BuildChecker（A03）
+- 消费侧：EChecker、MDFixer、平台任务入口
+- 创建端点：`POST /v1/full-check-jobs`
+
+输入：Repository（`url`、`canonical_url`、40 位 `commit`）、`environment_id`，以及可选
+执行限制。环境定义由 Environment Provider 保存，任务不重复传镜像和构建命令。
+
+成功输出：`resolved_commit`、`environment_id`、ACTUAL_GRAPH、DECLARED_GRAPH、
+ERROR_REPORT 三个 Artifact ID，以及 MD/RD 计数。
+
+## INCREMENTAL_CHECK
+
+- 生产侧：EChecker（A03）
+- 消费侧：MDFixer、平台任务入口
+- 创建端点：`POST /v1/incremental-check-jobs`
+
+输入在当前 Repository 和 `environment_id` 之外，增加：
+
+- `base_commit`
+- `baseline.actual_graph_artifact_id`
+- `baseline.commit`
+- `baseline.environment_id`
+
+受理时必须满足 `baseline.commit == base_commit` 且
+`baseline.environment_id == environment_id`。
+
+成功输出：`base_commit`、`resolved_commit`、`environment_id`、ERROR_REPORT Artifact ID，
+以及 `changes.added` / `changes.resolved`。根据共同产出方矩阵，EChecker 不产出
+ACTUAL_GRAPH。
+
+## 共同校验
+
+1. Repository 缺少 `canonical_url`、使用非 40 位 SHA 时拒绝。
+2. 输入缺少 `environment_id` 时拒绝。
+3. 基线 commit 或 environment_id 不一致时拒绝。
+4. 检出 MD/RD 时任务仍为 `SUCCEEDED`；分析器没有完成工作才使用
+   `FAILED / ANALYSIS_5001`。
+5. 成功输出必须通过专用输出 Schema；Artifact 必须可下载并通过 SHA-256 和大小核验。
+
+## 待双方确认
+
+- Environment Provider 查询完整环境定义的端点与错误载体。
+- `limits.timeout_seconds` 是否属于四类任务通用字段。
+- EChecker 不产出 ACTUAL_GRAPH 是否满足后续多轮增量算法；若不满足，应先修改共享产出方矩阵。
+- 接口编号和文件名，由双方在 `contract-phase/interfaces/` 中按既有编号统一确定。

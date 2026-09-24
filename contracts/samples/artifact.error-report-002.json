@@ -1,0 +1,12 @@
+{
+  "artifact_id": "error-report-002",
+  "type": "ERROR_REPORT",
+  "uri": "artifact://echecker/job-incr01/error-report.json",
+  "media_type": "application/json",
+  "producer_job_id": "job-incr01",
+  "environment_id": "env-draft-fixture-mode0",
+  "sha256": "ab1d256af1dd6d15200389da6d7ed8b322466945de29133ff6f81260c725700b",
+  "size_bytes": 490,
+  "created_at": "2026-09-23T09:05:00.000Z",
+  "source_commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
+}

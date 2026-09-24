@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/repository.schema.json",
+  "title": "Repository",
+  "description": "contract-phase 公共仓库身份。url 原样保存，canonical_url 用于地址比较，commit 必须为完整 SHA。",
+  "type": "object",
+  "required": ["url", "canonical_url", "commit"],
+  "additionalProperties": false,
+  "properties": {
+    "url": { "type": "string", "pattern": "^https://" },
+    "canonical_url": {
+      "type": "string",
+      "pattern": "^https://[A-Za-z0-9.-]+/[^?#]+$",
+      "description": "HTTPS 规范地址；不得包含 query、fragment、用户名或密码。"
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+  }
+}

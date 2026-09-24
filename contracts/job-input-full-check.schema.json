@@ -2,70 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-input-full-check.schema.json",
   "title": "FullCheckJobInput",
-  "description": "FULL_CHECK 任务的专有输入。基线属于固定提交和固定构建配置：同一提交在不同配置下的依赖关系不同，因此 configuration_id 与 commit 共同构成基线的身份。",
+  "description": "FULL_CHECK 的 A03 接口提案。按照 contract-phase 公共约定，任务只引用 environment_id；镜像、项目根目录与构建命令由 Environment Provider 保存。",
   "type": "object",
-  "required": ["repository", "environment", "build"],
+  "required": ["repository", "environment_id"],
   "additionalProperties": false,
   "properties": {
     "repository": {
       "type": "object",
-      "description": "待检测的仓库与版本。",
-      "required": ["url", "commit"],
+      "required": ["url", "canonical_url", "commit"],
       "additionalProperties": false,
       "properties": {
-        "url": { "type": "string", "minLength": 1 },
-        "commit": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$",
-          "description": "完整 commit SHA。基线必须绑定到具体提交，不接受分支名或标签。"
-        }
+        "url": { "type": "string", "pattern": "^https://" },
+        "canonical_url": { "type": "string", "pattern": "^https://[A-Za-z0-9.-]+/[^?#]+$" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
       }
     },
-    "environment": {
-      "type": "object",
-      "description": "检测所依据的运行环境，通常来自环境生成服务的输出。",
-      "required": ["image_ref", "configuration_id"],
-      "additionalProperties": false,
-      "properties": {
-        "image_ref": {
-          "type": "string",
-          "minLength": 1,
-          "description": "可运行镜像引用。"
-        },
-        "configuration_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "构建配置标识。与 commit 共同确定基线身份；缺失则结果无法跨配置比较。",
-          "examples": ["cc-MODE0"]
-        }
-      }
-    },
-    "build": {
-      "type": "object",
-      "description": "全量构建的执行方式。",
-      "required": ["clean_command", "project_root"],
-      "additionalProperties": false,
-      "properties": {
-        "clean_command": {
-          "type": "string",
-          "minLength": 1,
-          "description": "干净的完整构建命令，需保证从零开始构建。",
-          "examples": ["make clean && make"]
-        },
-        "project_root": {
-          "type": "string",
-          "description": "项目根目录在容器内的路径。",
-          "examples": ["/work"]
-        }
-      }
+    "environment_id": {
+      "type": "string",
+      "pattern": "^env-[A-Za-z0-9_-]+$",
+      "description": "平台全局唯一的环境身份；完整环境定义由 Environment Provider 提供。"
     },
     "limits": {
       "type": "object",
       "required": ["timeout_seconds"],
       "additionalProperties": false,
-      "properties": {
-        "timeout_seconds": { "type": "integer", "minimum": 1 }
-      }
+      "properties": { "timeout_seconds": { "type": "integer", "minimum": 1 } }
     }
   }
 }

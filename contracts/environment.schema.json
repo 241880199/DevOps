@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/environment.schema.json",
+  "title": "Environment",
+  "description": "contract-phase 公共环境对象。环境创建后不可变，下游 Job 只传 environment_id。",
+  "type": "object",
+  "required": ["environment_id", "image", "project_root", "working_directory", "build_command", "runtime_capabilities"],
+  "additionalProperties": false,
+  "properties": {
+    "environment_id": { "type": "string", "pattern": "^env-[A-Za-z0-9_-]+$" },
+    "image": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "IMAGE_REF Artifact ID。" },
+    "project_root": { "type": "string", "minLength": 1 },
+    "working_directory": { "type": "string", "minLength": 1 },
+    "build_command": { "type": "string", "minLength": 1 },
+    "runtime_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["ptrace"] }
+    }
+  }
+}

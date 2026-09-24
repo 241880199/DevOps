@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "repository": {
+    "url": "https://github.com/241880199/DevOps",
+    "canonical_url": "https://github.com/241880199/DevOps",
+    "commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
+  },
+  "environment_id": "env-draft-fixture-mode0",
+  "produced_by": {
+    "detector": "A03_CONTRACT_SAMPLE",
+    "job_id": "job-incr01",
+    "mode": "MANUAL"
+  },
+  "generated_at": "2026-09-23T09:05:00.000Z",
+  "summary": { "missing": 0, "redundant": 0 },
+  "findings": []
+}
