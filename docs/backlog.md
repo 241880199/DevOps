@@ -70,8 +70,7 @@
 
 | 项 | 说明 | 验收 |
 | --- | --- | --- |
-| **构建证据采集** | `Dockerfile.ok` / `Dockerfile.broken` / `Dockerfile.reference` 的实际构建日志尚未归档——需 Docker daemon 运行 | 落盘成功日志与失败日志各一份 |
-| **容器内构建证据** | 换行符一项已解决：`.gitattributes` 已固定 `fixtures/draft/**` 与 `fixtures/mdfixer/**` 为 LF（此前只固定了检测侧，导致同一份样例在 Windows 与 POSIX 检出上摘要不一致）。仍需在 Linux 容器中确认 `RUN` 的 `\` 续行被正确解析并完成真实构建 | 三份 Dockerfile 均能在容器中按 README 所述构建出预期结果，并落盘成功、失败日志各一份 |
+| **构建证据采集（属 E3 交付项）** | `Dockerfile.ok` / `Dockerfile.broken` / `Dockerfile.reference` 的实际构建日志尚未归档——需 Docker daemon 运行。**不属于 E2 范围**：E2 的提交材料与接口最小检查都不含构建日志，两层成功判据的实证（保留实际运行或失败记录、保存构建日志）是 E3 的交付要求。换行符一项已随本轮解决：`.gitattributes` 已固定 `fixtures/draft/**` 与 `fixtures/mdfixer/**` 为 LF，工作树与提交态字节一致 | 三份 Dockerfile 均能在 Linux 容器中按各自 README 所述构建出预期结果，并落盘成功、失败日志各一份 |
 | 真实构建接入 | 当前 mock 不执行真实构建，产出为模拟值 | 用真实 `docker build` 替换模拟分支 |
 
 ### 契约待确认
