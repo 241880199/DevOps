@@ -1,6 +1,6 @@
 # ADR-011：DRAFT / REPAIR 迁移到统一任务模型 2.0
 
-- **状态**：环境生成与依赖修复服务已采用，待双方在 `contract-phase/interfaces/` 冻结
+- **状态**：环境生成与依赖修复服务已采用，待双方在 `docs/interfaces/` 冻结
 - **日期**：2026-09-24
 - **范围**：环境生成与依赖修复服务 / DRAFT / REPAIR / E2
 - **取代**：`docs/ADR/ADR-007` 中与环境身份相关的部分（`configuration_id`）
@@ -41,10 +41,10 @@
 
 - **正面**：环境身份有了唯一的生产者与唯一的查询入口；构建方式不再有多份副本；检测与修复的基线对齐从「比字符串」变成「比环境身份」。
 - **代价**：破坏性变更——REPAIR 的调用方必须改用 `environment_id`；`project_subdir` 的语义被环境吸收，调用方需要知道路径基准变了。
-- **未冻结**：`GET /v1/environments/{environment_id}` 仍是环境生成与依赖修复服务提案，需写入 `contract-phase/interfaces/` 并经双方确认；「环境不存在」用哪个错误码共享错误码表尚未定义，mock 暂以 `404` + `EXEC_4002` 承载。
+- **未冻结**：`GET /v1/environments/{environment_id}` 仍是提案，需写入 `docs/interfaces/` 并经双方确认。「环境不存在」现用 `REQ_1002`（`404`），共享错误码表已补档。
 - **外部评审后的加固（2026-09-24）**：`verification.recheck_command` 由可选改为**必填**——`recheck_ok` 是「补丁是否真的消除依赖问题」的唯一依据，可选时它与「fixed 非空则三项为真」的不变式互相矛盾；`repository.commit` 收紧为完整 40 位（缩写会让「同一版本」变成模糊判断）；人工基线样例的存储域明确为 `oracle` 并进入校验；mock 新增报告可用性检查（类型、所属环境、有无可修目标）与执行阶段的版本比对，并让仓库版本解析与产物记录自检挡住「产出违约却看起来正常」。见 `docs/AI_USAGE.md` 第四轮第 20 条。
 - **第二轮外部评审后的加固（2026-09-24）**：新增可选输入 `runtime_capabilities`，让能力需求由调用方提出、由环境生成服务固定进环境记录（此前生成的环境一律不带能力，检测侧只能自己假设）；`project_subdir` 与 `makefile_path` 收紧为仓库内相对路径（绝对路径与 `..` 会逃出工作区），环境的 `project_root` 另判「落在工作区内」；报告的取回内容按 `error-report.schema.json` 校验，并核对内容与产物记录一致；执行阶段的版本比对改用**报告正文声明的**版本而不是记录里的元数据。见 `docs/AI_USAGE.md` 第四轮第 21 条。
-- **遗留缺口**：样例里 `iterations[].build_log_artifact_id` 与 `verification_log_artifact_id` 引用的产物编号尚无对应产物记录；能力目前只在**检测类任务**上被强制（修复类不要求 `ptrace`），是否对所有依环境的任务统一强制待双方定；共享错误码表缺「请求不合法 / 环境不存在 / 服务内部不变量违反」三档，本地实现暂借 `EXEC_4002` 与 `404`，见 `contracts/error-codes.md` 第 7 节。
+- **遗留缺口**：样例里 `iterations[].build_log_artifact_id` 与 `verification_log_artifact_id` 引用的产物编号尚无对应产物记录；能力目前只在**检测类任务**上被强制（修复类不要求 `ptrace`），是否对所有依环境的任务统一强制待双方定。共享错误码表的三档缺口（请求不合法 / 资源不存在 / 服务内部不变量违反）已于 2026-09-24 补档为 `REQ_1001` / `REQ_1002` / `EXEC_4003`，见 `contracts/error-codes.md` 第 7 节。
 - **可执行证据**：`scripts/validate.py` 检查 14 逐条核对以上约定（环境可查、镜像产物归属、DRAFT 产物 `environment_id` 为 null、REPAIR 不内嵌环境、报告编号与 URI 一致、样例提交真实存在）；`scripts/mock_server.py` 提供环境查询端点，未登记的环境使任务在受理阶段被 `400` 拒绝。
 
 ## 相关文件

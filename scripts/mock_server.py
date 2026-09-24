@@ -416,9 +416,9 @@ def register_artifact(job_id: str, job_type: str, commit: str, blob: bytes,
     problems = schema_errors(
         "artifact", {k: v for k, v in record.items() if not k.startswith("_")})
     if problems:
-        code, stage = (("ANALYSIS_5001", "ANALYSIS") if job_type in DETECTION_TYPES
-                       else ("EXEC_4002", "EXEC"))
-        raise JobAbort(code, stage,
+        # 产出违约归 EXEC_4003：它发生在执行期，但码本身已区别于「超时」，
+        # 调度器不会误判成可重试。此前检测类借用 ANALYSIS_5001、其余借用 EXEC_4002。
+        raise JobAbort("EXEC_4003", "EXEC",
                        "mock 登记的产物记录不符合 artifact 契约。", "; ".join(problems))
     ARTIFACTS[art_id] = record
     return art_id
@@ -463,10 +463,9 @@ def output_for_draft(job: dict) -> dict:
                             payload["repository"].get("url", ""))
     if commit is None:
         # 兜底：这个分支在受理阶段（cross_checks）就该被拦下。留在这里是为了万一
-        # 走到这一步也不产出带假提交的记录；载体沿用受理阶段那一档的临时选择，
-        # 待共享错误码表补上「请求不合法」后一并替换。
+        # 走到这一步也不产出带假提交的记录；载体与受理阶段同码——REQ_1001「请求不合法」。
         raise JobAbort(
-            "EXEC_4002", "EXEC",
+            "REQ_1001", "REQ",
             "无法解析仓库版本：输入给的 commit 不是仓库中真实存在的提交。",
             f"input.repository.commit={payload['repository'].get('commit')!r}；"
             f"mock 只能解析本仓库（{SELF_REPO_URL}）的提交。",
@@ -479,7 +478,7 @@ def output_for_draft(job: dict) -> dict:
     # （"a//"）与中间（"a//b"）两种，只看 split 的结果会把尾部空段吃掉。
     if raw_subdir.startswith("/") or ".." in segments or "" in segments or "//" in raw_subdir:
         raise JobAbort(
-            "EXEC_4002", "EXEC",
+            "REQ_1001", "REQ",
             "项目根越界：project_subdir 必须是仓库内的相对路径。",
             f"project_subdir={build.get('project_subdir')!r}；不接受绝对路径、`..` 或空路径段"
             f"——它会被拼成容器内的项目根，越界后构建与验证会作用到别的目录上。",
@@ -721,10 +720,8 @@ def run_job(job_id: str, should_fail: bool, should_analysis_fail: bool) -> None:
             job.pop("output", None)
             job["status"] = "FAILED"
             job["error"] = {
-                "code": "ANALYSIS_5001" if job["job_type"] in
-                        {"FULL_CHECK", "INCREMENTAL_CHECK"} else "EXEC_4002",
-                "stage": "ANALYSIS" if job["job_type"] in
-                         {"FULL_CHECK", "INCREMENTAL_CHECK"} else "EXEC",
+                "code": "EXEC_4003",
+                "stage": "EXEC",
                 "message": "mock 生成的任务输出不符合专用 Schema。",
                 "detail": "; ".join(output_errors),
                 "at": now_iso(),
@@ -771,25 +768,25 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         job_type = ENDPOINTS.get(self.path)
         if job_type is None:
-            self._error(404, "EXEC_4002", f"未知端点：POST {self.path}")
+            self._error(404, "REQ_1002", f"未知端点：POST {self.path}")
             return
 
         try:
             length = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(length) or b"{}")
         except (ValueError, TypeError) as exc:
-            self._error(400, "EXEC_4002", f"请求体不是合法 JSON：{exc}")
+            self._error(400, "REQ_1001", f"请求体不是合法 JSON：{exc}")
             return
 
         if isinstance(body, dict) and body.get("job_type") not in (None, job_type):
-            self._error(400, "EXEC_4002",
+            self._error(400, "REQ_1001",
                         f"job_type {body.get('job_type')!r} 与端点 {self.path} "
                         f"（{job_type}）不匹配")
             return
 
         problems = validate_request(body)
         if problems:
-            self._error(400, "EXEC_4002", problems)
+            self._error(400, "REQ_1001", problems)
             return
 
         job_id = new_job_id()
@@ -838,7 +835,7 @@ class Handler(BaseHTTPRequestHandler):
                 job = JOBS.get(m.group(1))
                 snapshot = json.loads(json.dumps(job)) if job else None
             if snapshot is None:
-                self._error(404, "EXEC_4002", f"任务不存在：{m.group(1)}")
+                self._error(404, "REQ_1002", f"任务不存在：{m.group(1)}")
                 return
             self._send(200, snapshot)
             return
@@ -849,7 +846,7 @@ class Handler(BaseHTTPRequestHandler):
                 env = ENVIRONMENTS.get(m.group(1))
                 snapshot = dict(env) if env else None
             if snapshot is None:
-                self._error(404, "EXEC_4002", f"环境不存在：{m.group(1)}")
+                self._error(404, "REQ_1002", f"环境不存在：{m.group(1)}")
                 return
             self._send(200, snapshot)
             return
@@ -860,7 +857,7 @@ class Handler(BaseHTTPRequestHandler):
                 art = ARTIFACTS.get(m.group(1))
                 snapshot = dict(art) if art else None
             if snapshot is None:
-                self._error(404, "EXEC_4002", f"产物不存在：{m.group(1)}")
+                self._error(404, "REQ_1002", f"产物不存在：{m.group(1)}")
                 return
             blob = snapshot.pop("_blob", b"")
             self._send_bytes(200, blob, snapshot["media_type"])
@@ -873,7 +870,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"jobs": summary, "endpoints": sorted(ENDPOINTS)})
             return
 
-        self._error(404, "EXEC_4002", f"未知端点：GET {self.path}")
+        self._error(404, "REQ_1002", f"未知端点：GET {self.path}")
 
 
 def main() -> None:

@@ -1,6 +1,6 @@
 # ADR-010：依赖检测服务检测接口对齐 contract-phase 公共契约
 
-- **状态**：依赖检测服务已采用，待双方在 `contract-phase/interfaces/` 冻结
+- **状态**：依赖检测服务已采用，待双方在 `docs/interfaces/` 冻结
 - **日期**：2026-09-24
 - **范围**：依赖检测服务 / BuildChecker / EChecker / E2
 - **依据**：`241880199/DevOps` 的 `contract-phase` 分支，提交 `431a7438a2487ef505b528e7bd781b2c2563862b`
@@ -25,7 +25,7 @@ ADR-008、ADR-009 所依据的早期字段存在破坏性差异：`environment_i
    ERROR_REPORT，并在小型 `changes` 中表达新增和消除项。
 5. Artifact URI 的存储域按服务命名：`buildchecker` 或 `echecker`；内容统一通过
    `GET /v1/artifacts/{artifact_id}` 获取并核验摘要。
-6. 以上是依赖检测服务可执行提案。只有写入 `contract-phase/interfaces/` 并经双方确认后，才称为
+6. 以上是依赖检测服务可执行提案。只有写入 `docs/interfaces/` 并经双方确认后，才称为
    冻结接口。
 
 ## Consequences

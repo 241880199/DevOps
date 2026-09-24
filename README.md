@@ -102,6 +102,8 @@ docs/
     查询任务.md                        GET /v1/jobs/{job_id}
     下载产物.md                        GET /v1/artifacts/{artifact_id}
     查询环境定义.md                    GET /v1/environments/{environment_id}
+  联调检查清单.md                      跨接口的组合检查与闭环顺序
+  records/                            个人工作记录，每人一份
   ADR/                                架构决策记录 001–011
   AI_USAGE.md                         设计过程与 AI 使用记录
   backlog.md                          进展与待办

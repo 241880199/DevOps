@@ -851,8 +851,8 @@ def check_13_contract_phase_alignment(schemas: dict, rep: Report) -> None:
                   bool(errors_of(task, bad_job)),
                   f"未被拒绝：{value}")
 
-    shared_codes = {"ENV_3002", "EXEC_4002", "ANALYSIS_5001",
-                    "REPAIR_6001", "REPAIR_6002"}
+    shared_codes = {"REQ_1001", "REQ_1002", "ENV_3002", "EXEC_4002",
+                    "EXEC_4003", "ANALYSIS_5001", "REPAIR_6001", "REPAIR_6002"}
     actual_codes = set(task["$defs"]["error"]["properties"]["code"].get("enum", []))
     rep.check("error.code 只接受共同定义的错误码", actual_codes == shared_codes,
               f"实际：{sorted(actual_codes)}")

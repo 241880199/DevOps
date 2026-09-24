@@ -170,7 +170,7 @@
       "properties": {
         "code": {
           "type": "string",
-          "enum": ["ENV_3002", "EXEC_4002", "ANALYSIS_5001", "REPAIR_6001", "REPAIR_6002"],
+          "enum": ["REQ_1001", "REQ_1002", "ENV_3002", "EXEC_4002", "EXEC_4003", "ANALYSIS_5001", "REPAIR_6001", "REPAIR_6002"],
           "description": "contract-phase 已共同定义的任务错误码。新增错误码必须先同步共享文档和本约束。"
         },
         "message": {
@@ -180,7 +180,7 @@
         },
         "stage": {
           "type": "string",
-          "enum": ["ENV", "EXEC", "ANALYSIS", "REPAIR"]
+          "enum": ["REQ", "ENV", "EXEC", "ANALYSIS", "REPAIR"]
         },
         "detail": {
           "type": "string",
