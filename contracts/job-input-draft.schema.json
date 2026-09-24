@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-input-draft.schema.json",
   "title": "DraftJobInput",
-  "description": "DRAFT 任务的专有输入。自动构建需要明确的成功判据，因此 build 段同时要求构建命令与功能验证命令。挂在统一任务模型的 input 字段下。",
+  "description": "DRAFT 任务的专有输入。自动构建需要明确的成功判据，因此 build 段同时要求构建命令与功能验证命令。挂在统一任务模型的 input 字段下。本任务不引用 environment_id——它就是环境的产生方：输入表达「生成要求」，输出才是生成结果，其中 build.command 原样成为 Environment.build_command，build.project_subdir（仓库内路径）决定 Environment.project_root（容器内路径）。",
   "type": "object",
   "required": ["repository", "build", "limits"],
   "additionalProperties": false,
@@ -46,11 +46,12 @@
         "verify_expect": {
           "type": "string",
           "description": "第二层：期望的标准输出（用于自动比对）。缺失时只校验退出码。",
-          "examples": ["hello draft"]
+          "examples": ["hello E3"]
         },
         "project_subdir": {
           "type": "string",
-          "description": "项目根目录相对仓库根的路径，默认 \".\"。构建与验证命令都在该目录下执行。缺了它，仓库根不是构建根的项目（本仓库自己就是——可构建的样例在 fixtures/draft/）无法被正确容器化：DRAFT 只会在仓库根跑 make，然后以「构建不通过」收场，而实际原因只是找错了目录。",
+          "pattern": "^(?!/)(?!.*(?:^|/)[.][.](?:/|$)).+$",
+          "description": "项目根目录相对仓库根的路径，默认 \".\"。构建与验证命令都在该目录下执行。缺了它，仓库根不是构建根的项目（本仓库自己就是——可构建的样例在 fixtures/draft/）无法被正确容器化：DRAFT 只会在仓库根跑 make，然后以「构建不通过」收场，而实际原因只是找错了目录。**必须是仓库内的相对路径**：不接受绝对路径，也不接受含 `..` 的路径——它会被拼成容器内的项目根，越界后构建与验证会作用到别的目录上。",
           "default": ".",
           "examples": ["fixtures/draft", "."]
         }
@@ -74,6 +75,13 @@
           "description": "单次构建的墙钟上限（秒）。"
         }
       }
+    },
+    "runtime_capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "本次生成的环境需要具备的运行能力（v1 只有 `ptrace`）。这是**需求方**的信息：调用方知道后续要在这个环境里做什么（依赖检测要读文件访问记录），环境生成服务据此把它写进环境记录。缺省为空数组，表示不需要额外能力。",
+      "items": { "type": "string", "enum": ["ptrace"] },
+      "examples": [["ptrace"]]
     },
     "context_documents": {
       "type": "array",

@@ -4,9 +4,9 @@
   "uri": "artifact://mdfixer/job-repair01/fix.patch",
   "media_type": "text/x-diff",
   "producer_job_id": "job-repair01",
-  "environment_id": "env-mdfixer-reference",
+  "environment_id": "env-draft-mdfixer-001",
   "sha256": "b6e14fa1c8d34d93614a279db5c0e36515bdc113fb1cc403c83505017d8fd561",
   "size_bytes": 199,
   "created_at": "2026-09-20T11:01:47.000Z",
-  "source_commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+  "source_commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
 }

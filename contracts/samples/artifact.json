@@ -5,8 +5,8 @@
   "media_type": "text/x-dockerfile",
   "producer_job_id": "job-draft01",
   "environment_id": null,
-  "sha256": "4120822b8beeb4bdaed9bd1f5c4f17956c95c9dca9645455b2cbd6b65da25846",
-  "size_bytes": 539,
+  "sha256": "3d25c855c116dc8cd0101b2851586d9895f11f0f978f34fca47ff7d0a1a26bcf",
+  "size_bytes": 519,
   "created_at": "2026-09-20T10:03:41.000Z",
-  "source_commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+  "source_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
 }

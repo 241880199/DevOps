@@ -16,6 +16,7 @@ contracts/ 下的契约**可被实际执行验证**：契约能不能表达四�
     POST /v1/repair-jobs                创建依赖修复任务（REPAIR）
     GET  /v1/jobs/{job_id}              查询任务
     GET  /v1/artifacts/{artifact_id}    下载产物
+    GET  /v1/environments/{environment_id}  查询环境定义
 
 执行模拟：
     四类任务均返回符合专用输出契约的模拟结果。FULL_CHECK 与
@@ -37,6 +38,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -66,21 +68,44 @@ ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "contracts"
 SAMPLES = CONTRACTS / "samples"
 FIXTURE_DOCKERFILE = ROOT / "fixtures" / "draft" / "docker" / "Dockerfile.ok"
-STATIC_A03_ARTIFACTS = (
-    ("artifact.actual-graph-001.json", ROOT / "fixtures" / "a03" / "full-check" / "actual-graph.json"),
-    ("artifact.declared-graph-001.json", ROOT / "fixtures" / "a03" / "full-check" / "declared-graph.json"),
-    ("artifact.error-report-001.json", ROOT / "fixtures" / "a03" / "full-check" / "error-report.json"),
-    ("artifact.error-report-002.json", ROOT / "fixtures" / "a03" / "incremental-check" / "error-report.json"),
+
+# 静态产物记录 -> 实物内容。启动时逐条登记，供下载接口与契约样例共用；
+# 摘要或大小与实物不符即拒绝启动——样例里的数字必须真实可取。
+STATIC_ARTIFACTS = (
+    ("artifact.actual-graph-001.json", ROOT / "fixtures" / "detection" / "full-check" / "actual-graph.json"),
+    ("artifact.declared-graph-001.json", ROOT / "fixtures" / "detection" / "full-check" / "declared-graph.json"),
+    ("artifact.error-report-001.json", ROOT / "fixtures" / "detection" / "full-check" / "error-report.json"),
+    ("artifact.error-report-002.json", ROOT / "fixtures" / "detection" / "incremental-check" / "error-report.json"),
+    ("artifact.json", FIXTURE_DOCKERFILE),
+    ("artifact.patch.json", ROOT / "fixtures" / "mdfixer" / "reference.patch"),
+    ("artifact.image-ref-001.json", ROOT / "fixtures" / "draft" / "docker" / "image-ref.txt"),
+    ("artifact.image-ref-002.json", ROOT / "fixtures" / "mdfixer" / "docker" / "image-ref.txt"),
+    ("artifact.error-report-003.json", ROOT / "fixtures" / "mdfixer" / "error-report.json"),
+)
+
+# 静态环境记录：环境生成服务产出的样例环境，供检测与修复样例按 environment_id 引用。
+STATIC_ENVIRONMENTS = (
+    "environment.draft-fixture-mode0.json",
+    "environment.draft-mdfixer-001.json",
 )
 
 SCHEMA_VERSION = "2.0"
 JOB_SCHEMA_VERSION = {
-    "DRAFT": "1.0",
-    "FULL_CHECK": "2.0",
-    "INCREMENTAL_CHECK": "2.0",
-    "REPAIR": "1.0",
+    "DRAFT": SCHEMA_VERSION,
+    "FULL_CHECK": SCHEMA_VERSION,
+    "INCREMENTAL_CHECK": SCHEMA_VERSION,
+    "REPAIR": SCHEMA_VERSION,
 }
 TERMINAL = {"SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"}
+DETECTION_TYPES = {"FULL_CHECK", "INCREMENTAL_CHECK"}
+
+# 产物存储域按服务命名（见 contracts/artifact.schema.json）
+SERVICE_DOMAIN = {
+    "DRAFT": "draft",
+    "REPAIR": "mdfixer",
+    "FULL_CHECK": "buildchecker",
+    "INCREMENTAL_CHECK": "echecker",
+}
 
 # 端点 -> job_type
 ENDPOINTS = {
@@ -106,9 +131,10 @@ OUTPUT_SCHEMA = {
     "REPAIR": "job-output-repair",
 }
 
-# 内存态任务表 + 产物表。mock 不做持久化，进程退出即丢失。
+# 内存态任务表 + 产物表 + 环境表。mock 不做持久化，进程退出即丢失。
 JOBS: dict[str, dict] = {}
 ARTIFACTS: dict[str, dict] = {}
+ENVIRONMENTS: dict[str, dict] = {}
 LOCK = threading.Lock()
 
 
@@ -129,6 +155,35 @@ def now_iso() -> str:
 
 def new_job_id() -> str:
     return "job-" + uuid.uuid4().hex[:8]
+
+
+SELF_REPO_URL = "https://github.com/241880199/DevOps"
+
+
+class JobAbort(Exception):
+    """构建器判定任务必须以失败收场时抛出；run_job 据此写入终态与错误码。"""
+
+    def __init__(self, code: str, stage: str, message: str, detail: str = "") -> None:
+        super().__init__(message)
+        self.code, self.stage, self.message, self.detail = code, stage, message, detail
+
+
+def resolve_commit(commit: str | None, repo_url: str = "") -> str | None:
+    """把环境生成任务输入里的版本解析成**仓库中真实存在**的完整 40 位 SHA。
+
+    两件事一起做，缺一不可：产物记录要求完整 SHA，而输入允许缺省或缩写；同时记进
+    产物的必须是真实存在的提交——格式合法但不存在的 SHA 会让下游拿到一条永远对不上
+    的追溯信息，而它在 schema 上完全合法。
+
+    mock 没有克隆远端的能力：URL 不是本仓库时只采用完整 SHA（无法验证存在性），
+    缩写与缺省一律解析失败。
+    """
+    is_self = repo_url.rstrip("/").removesuffix(".git") == SELF_REPO_URL
+    if not is_self:
+        return commit if commit and re.fullmatch(r"[0-9a-f]{40}", commit) else None
+    proc = subprocess.run(["git", "rev-parse", "--verify", f"{commit or 'HEAD'}^{{commit}}"],
+                          cwd=ROOT, capture_output=True, text=True, check=False)
+    return proc.stdout.strip() if proc.returncode == 0 else None
 
 
 # ------------------------------------------------------------------ 输入校验
@@ -176,6 +231,16 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
     errs = []
 
     repository = payload.get("repository", {})
+    if job_type == "DRAFT":
+        # 版本解析是受理阶段就能判定的输入问题：解析不出来就该拒绝请求，
+        # 而不是先把任务建起来、再在产出前失败（那会让错误码去挤占执行期的档位）。
+        if resolve_commit(repository.get("commit"), repository.get("url", "")) is None:
+            errs.append(
+                f"repository/commit: {repository.get('commit')!r} 无法解析为仓库中"
+                f"真实存在的提交——环境生成要按这个版本产出并回报完整 SHA"
+                f"（mock 只解析本仓库的提交，外部仓库须给完整 SHA）"
+            )
+
     if "canonical_url" in repository:
         try:
             parsed = urlsplit(repository.get("url", ""))
@@ -194,6 +259,24 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
         if not expected or repository["canonical_url"] != expected:
             errs.append(
                 "repository/canonical_url: 必须等于按 contract-phase 规则规范化后的 URL"
+            )
+
+    # 任务只按 environment_id 引用环境；环境由环境生成服务产出并保存，
+    # 未登记的环境说明下游拿不到完整定义，任务不该被受理。
+    env_id = payload.get("environment_id")
+    if env_id is not None:
+        with LOCK:
+            known_env = env_id in ENVIRONMENTS
+        if not known_env:
+            errs.append(
+                f"environment_id: 环境 {env_id} 未注册。环境由环境生成服务产出，"
+                f"任务只能引用已存在的环境（GET /v1/environments/{{environment_id}}）"
+            )
+        elif (job_type in {"FULL_CHECK", "INCREMENTAL_CHECK"}
+              and "ptrace" not in ENVIRONMENTS[env_id].get("runtime_capabilities", [])):
+            errs.append(
+                f"environment_id: 环境 {env_id} 未声明 ptrace——依赖检测要读文件访问记录，"
+                f"这项能力属于环境的需求，应在生成环境时提出，而不是假设默认具备"
             )
 
     if job_type == "INCREMENTAL_CHECK":
@@ -219,83 +302,220 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
                 f"（REPAIR_6001：报告失效，修复拒绝执行）"
             )
 
+        errs.extend(report_reference_problems(payload))
+
     return errs
+
+
+def report_reference_problems(payload: dict) -> list[str]:
+    """修复输入是否可用：取得到、是报告、属于同一环境、且确有可修的东西。
+
+    只校验「编号存在」远远不够：编号可以指向一份 Dockerfile 或一份补丁，也可以
+    指向另一个环境的报告。那样修复会在错误的输入上跑完全程，而结论看起来完全正常。
+    artifact_uri 是可选的对照字段，填了必须与产物记录一致。
+    """
+    errs = []
+    report = payload["report"]
+    record = ARTIFACTS.get(report["artifact_id"])
+    if record is None:
+        return [
+            f"report/artifact_id: 未登记产物 {report['artifact_id']}。"
+            f"报告必须先可经 GET /v1/artifacts/{{artifact_id}} 取回"
+        ]
+
+    if record.get("type") != "ERROR_REPORT":
+        errs.append(
+            f"report/artifact_id: 产物 {report['artifact_id']} 的类型是 "
+            f"{record.get('type')!r}，不是 ERROR_REPORT——修复的输入只能是一份依赖问题报告"
+        )
+    if record.get("environment_id") != payload.get("environment_id"):
+        errs.append(
+            f"report/artifact_id: 报告所属环境 {record.get('environment_id')!r} "
+            f"与本次环境 {payload.get('environment_id')!r} 不一致——"
+            f"不同环境下的依赖结论不可比"
+        )
+    if report.get("artifact_uri") and report["artifact_uri"] != record.get("uri"):
+        errs.append(
+            f"report/artifact_uri: {report['artifact_uri']} "
+            f"与产物记录的 uri {record.get('uri')} 不一致"
+        )
+    doc, body_problems = report_body(record)
+    errs.extend(f"report/artifact_id: {p}" for p in body_problems)
+    if doc is not None:
+        # 环境要看**报告正文**声明的那个：产物记录的元数据可能被错标或调换，
+        # 只比元数据的话，一份来自别环境的报告会一路通过并驱动一次错误的修复。
+        if doc.get("environment_id") != payload.get("environment_id"):
+            errs.append(
+                f"report/artifact_id: 报告正文声明的环境 {doc.get('environment_id')!r} "
+                f"与本次环境 {payload.get('environment_id')!r} 不一致——"
+                f"不同环境下的依赖结论不可比"
+            )
+        declared_commit = doc["repository"]["commit"]
+        if record.get("source_commit") != declared_commit:
+            errs.append(
+                f"report/artifact_id: 报告内容与产物记录不一致——记录的 source_commit "
+                f"{record.get('source_commit')!r} 与报告里的 repository.commit "
+                f"{declared_commit!r} 不符；记录的元数据不可信时，版本比对就是空转"
+            )
+        if not [f for f in doc["findings"] if f.get("type") == "MISSING"]:
+            errs.append(
+                "报告里没有 MISSING 发现——没有可修复的目标时「修复」无意义"
+                "（REPAIR_6001）"
+            )
+    return errs
+
+
+def report_body(record: dict):
+    """取回报告内容并**按契约校验**。返回 (文档, 问题列表)。
+
+    内容解析不了、或不符合 error-report 契约，都是「输入不可用」，必须拒绝：把
+    「解析失败」当成「没问题」，等于让一份字节错误的报告驱动一次补丁生成。
+    """
+    raw = record.get("_blob")
+    if not raw:
+        return None, ["报告内容读取不到（产物记录没有可下载的内容）"]
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        return None, [f"报告内容不是合法 JSON：{exc}"]
+    problems = schema_errors("error-report", doc)
+    if problems:
+        # 结构不合契约时**不返回文档**：否则调用方会直接去取 repository / findings，
+        # 遇到 `{}` 这类输入就抛 KeyError，一个输入错误变成 500。
+        return None, [f"报告内容不符合 error-report 契约：{p}" for p in problems]
+    return doc, []
 
 
 # ------------------------------------------------------------------ 产物登记
 
-def register_artifact(job_id, job_type, commit, blob: bytes, media_type: str) -> str:
-    """登记一个产物，返回 artifact_id。"""
-    type_for = {"DRAFT": "DOCKERFILE", "REPAIR": "PATCH"}
-    name_for = {"DRAFT": "Dockerfile", "REPAIR": "fix.patch"}
-    kind = type_for.get(job_type, "BUILD_LOG")
+def register_artifact(job_id: str, job_type: str, commit: str, blob: bytes,
+                      media_type: str, *, artifact_type: str, filename: str,
+                      environment_id=None) -> str:
+    """登记一个产物，返回 artifact_id。
 
-    art_id = kind.lower().replace("_", "") + "-" + uuid.uuid4().hex[:6]
-    ARTIFACTS[art_id] = {
+    environment_id 为 None 表示产物产出时环境尚不存在——环境生成服务自己的产物
+    属于这种情形，见 contracts/artifact.schema.json 的对应约束。
+    """
+    art_id = artifact_type.lower().replace("_", "-") + "-" + uuid.uuid4().hex[:6]
+    record = {
         "artifact_id": art_id,
-        "type": kind,
-        "uri": f"artifact://{job_type.lower()}/{job_id}/{name_for.get(job_type, 'log.txt')}",
+        "type": artifact_type,
+        "uri": f"artifact://{SERVICE_DOMAIN[job_type]}/{job_id}/{filename}",
         "media_type": media_type,
         "producer_job_id": job_id,
-        "environment_id": None if job_type == "DRAFT" else "env-mdfixer-reference",
+        "environment_id": environment_id,
         "sha256": hashlib.sha256(blob).hexdigest(),
         "size_bytes": len(blob),
         "created_at": now_iso(),
         "source_commit": commit,
         "_blob": blob,
     }
+    # 产物记录也要过契约：source_commit 必须是完整 40 位 SHA、environment_id 的适用范围
+    # 由存储域决定。这层自检拦住的是「产出违约却看起来正常」——那种问题只有下游拿到
+    # 记录时才会暴露，而那时已经离出错点很远了。
+    problems = schema_errors(
+        "artifact", {k: v for k, v in record.items() if not k.startswith("_")})
+    if problems:
+        code, stage = (("ANALYSIS_5001", "ANALYSIS") if job_type in DETECTION_TYPES
+                       else ("EXEC_4002", "EXEC"))
+        raise JobAbort(code, stage,
+                       "mock 登记的产物记录不符合 artifact 契约。", "; ".join(problems))
+    ARTIFACTS[art_id] = record
     return art_id
 
 
 def register_json_artifact(job: dict, artifact_type: str,
                            filename: str, content: dict) -> str:
-    """把当前检测 job 的 JSON 产物登记到下载接口。"""
+    """把当前检测 job 的 JSON 产物登记到下载接口。
+
+    走的是同一个 register_artifact：产物记录的构造、存储域映射与契约自检只有一份，
+    检测侧不会因为「另写一份」而漏掉后来的约束。
+    """
     blob = (json.dumps(content, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    art_id = artifact_type.lower().replace("_", "-") + "-" + uuid.uuid4().hex[:6]
-    commit = job["input"]["repository"]["commit"]
-    service = "buildchecker" if job["job_type"] == "FULL_CHECK" else "echecker"
-    ARTIFACTS[art_id] = {
-        "artifact_id": art_id,
-        "type": artifact_type,
-        "uri": f"artifact://{service}/{job['job_id']}/{filename}",
-        "media_type": "application/json",
-        "producer_job_id": job["job_id"],
-        "environment_id": job["input"]["environment_id"],
-        "sha256": hashlib.sha256(blob).hexdigest(),
-        "size_bytes": len(blob),
-        "created_at": now_iso(),
-        "source_commit": commit,
-        "_blob": blob,
-    }
-    return art_id
+    return register_artifact(
+        job["job_id"], job["job_type"], job["input"]["repository"]["commit"],
+        blob, "application/json", artifact_type=artifact_type, filename=filename,
+        environment_id=job["input"]["environment_id"])
 
 
-def load_static_a03_artifacts() -> None:
-    """登记可下载的 A03 人工契约样例，并拒绝摘要不一致的启动。"""
-    for record_name, content_path in STATIC_A03_ARTIFACTS:
+def load_static_records() -> None:
+    """登记可下载的契约样例与环境记录，并拒绝摘要不一致的启动。"""
+    for record_name, content_path in STATIC_ARTIFACTS:
         record = json.loads((SAMPLES / record_name).read_text(encoding="utf-8"))
         blob = content_path.read_bytes()
         if hashlib.sha256(blob).hexdigest() != record.get("sha256"):
-            raise RuntimeError(f"A03 样例摘要失效：{record_name}")
+            raise RuntimeError(f"样例摘要失效：{record_name}")
         if len(blob) != record.get("size_bytes"):
-            raise RuntimeError(f"A03 样例大小失效：{record_name}")
+            raise RuntimeError(f"样例大小失效：{record_name}")
         ARTIFACTS[record["artifact_id"]] = {**record, "_blob": blob}
+
+    for sample_name in STATIC_ENVIRONMENTS:
+        env = json.loads((SAMPLES / sample_name).read_text(encoding="utf-8"))
+        ENVIRONMENTS[env["environment_id"]] = env
 
 
 # -------------------------------------------------------------- 任务生命周期
 
 def output_for_draft(job: dict) -> dict:
+    """环境生成：产出 Dockerfile 与镜像产物，并登记一个可查询的环境。"""
+    payload = job["input"]
+    commit = resolve_commit(payload["repository"].get("commit"),
+                            payload["repository"].get("url", ""))
+    if commit is None:
+        # 兜底：这个分支在受理阶段（cross_checks）就该被拦下。留在这里是为了万一
+        # 走到这一步也不产出带假提交的记录；载体沿用受理阶段那一档的临时选择，
+        # 待共享错误码表补上「请求不合法」后一并替换。
+        raise JobAbort(
+            "EXEC_4002", "EXEC",
+            "无法解析仓库版本：输入给的 commit 不是仓库中真实存在的提交。",
+            f"input.repository.commit={payload['repository'].get('commit')!r}；"
+            f"mock 只能解析本仓库（{SELF_REPO_URL}）的提交。",
+        )
+    build = payload["build"]
+    raw_subdir = build.get("project_subdir") or "."
+    segments = raw_subdir.rstrip("/").split("/")
+    # 判据看**原始值**：先 strip 再判 startswith("/") 的话，绝对路径会被静默改成相对路径
+    # （"/etc" → "etc"），守卫就成了死代码。空段一律拒绝、不做静默折叠——判据要覆盖尾部
+    # （"a//"）与中间（"a//b"）两种，只看 split 的结果会把尾部空段吃掉。
+    if raw_subdir.startswith("/") or ".." in segments or "" in segments or "//" in raw_subdir:
+        raise JobAbort(
+            "EXEC_4002", "EXEC",
+            "项目根越界：project_subdir 必须是仓库内的相对路径。",
+            f"project_subdir={build.get('project_subdir')!r}；不接受绝对路径、`..` 或空路径段"
+            f"——它会被拼成容器内的项目根，越界后构建与验证会作用到别的目录上。",
+        )
+    parts = [seg for seg in segments if seg != "."]
+    workdir = "/workspace" + ("/" + "/".join(parts) if parts else "")
+
     raw = FIXTURE_DOCKERFILE.read_bytes() if FIXTURE_DOCKERFILE.exists() else b""
-    art_id = register_artifact(job["job_id"], "DRAFT",
-                               job["input"]["repository"].get("commit", ""),
-                               raw, "text/x-dockerfile")
+    dockerfile_id = register_artifact(
+        job["job_id"], "DRAFT", commit, raw, "text/x-dockerfile",
+        artifact_type="DOCKERFILE", filename="Dockerfile", environment_id=None)
+
+    image_id = register_artifact(
+        job["job_id"], "DRAFT", commit, f"draft-{job['job_id']}:1.0\n".encode("utf-8"),
+        "text/plain", artifact_type="IMAGE_REF", filename="image-ref.txt",
+        environment_id=None)
+
+    # 环境创建后不可变：改动环境必须新建一个 environment_id。
+    # 本函数由 run_job 在持有 LOCK 时调用，这里不再重复加锁。
+    env_id = "env-" + job["job_id"][len("job-"):]
+    ENVIRONMENTS[env_id] = {
+        "environment_id": env_id,
+        "image": image_id,
+        "project_root": workdir,
+        "working_directory": workdir,
+        "build_command": build["command"],
+        # 能力需求来自调用方：它知道后续要在这个环境里做什么（检测要读文件访问记录）。
+        # 环境生成服务只负责把它固定下来，不替调用方猜。
+        "runtime_capabilities": list(payload.get("runtime_capabilities") or []),
+    }
+
     job["output"] = {
-        "dockerfile_artifact_id": art_id,
-        "image_ref": f"draft-{job['job_id']}:1.0",
-        "resolved_commit": job["input"]["repository"].get("commit", ""),
-        # B03 旧输出字段；A03 检测任务已按 contract-phase 改用 environment_id，
-        # 不再消费该值。待 B03 在共同接口文档中完成 DRAFT 专有输出迁移。
-        "configuration_id": "cc-mock0",
+        "environment_id": env_id,
+        "dockerfile_artifact_id": dockerfile_id,
+        "image_artifact_id": image_id,
+        "resolved_commit": commit,
         "iterations": [
             {
                 "round": 0,
@@ -309,13 +529,29 @@ def output_for_draft(job: dict) -> dict:
             "build_ok": True,
             "artifact_present": True,
             "verify_ok": True,
-            "verify_stdout": "hello draft\n",
+            "verify_stdout": "hello E3\n",
             "rounds_used": 0,
         },
     }
 
 
 def output_for_repair(job: dict) -> dict:
+    payload = job["input"]
+    # 受理阶段只在请求声明了 report.commit 时比对；没声明时，要到「取回报告」这一步
+    # 才知道报告属于哪个版本——这正是 REPAIR_6001 的意义：不拿失效的报告去生成补丁。
+    record = ARTIFACTS.get(payload["report"]["artifact_id"], {})
+    doc, _ = report_body(record)
+    # 比对的是**报告正文声明的**版本：产物记录的 source_commit 只是元数据，元数据过期
+    # 或记错时版本检查就是空转，补丁照样按错误的版本生成出来。
+    report_commit = (doc or {}).get("repository", {}).get("commit")
+    if report_commit and report_commit != payload["repository"]["commit"]:
+        raise JobAbort(
+            "REPAIR_6001", "REPAIR",
+            "修复输入不可用：报告所依据的源码版本与请求的 repository.commit 不一致，报告失效。",
+            f"请求 commit {payload['repository']['commit'][:8]}…，"
+            f"报告所依据的 commit {report_commit[:8]}…；请求未声明 report.commit，"
+            f"故在执行阶段取回报告后才发现。",
+        )
     patch = (
         "--- a/Makefile\n"
         "+++ b/Makefile\n"
@@ -325,9 +561,10 @@ def output_for_repair(job: dict) -> dict:
         "+\t$(CC) $(CFLAGS) -c main.c -o main.o\n"
         "+main.o: config.h feature.h\n"
     ).encode()
-    art_id = register_artifact(job["job_id"], "REPAIR",
-                               job["input"]["repository"].get("commit", ""),
-                               patch, "text/x-diff")
+    art_id = register_artifact(
+        job["job_id"], "REPAIR", job["input"]["repository"].get("commit", ""),
+        patch, "text/x-diff", artifact_type="PATCH", filename="fix.patch",
+        environment_id=job["input"]["environment_id"])
     job["output"] = {
         "patch_artifact_id": art_id,
         "resolved_commit": job["input"]["repository"].get("commit", ""),
@@ -465,7 +702,19 @@ def run_job(job_id: str, should_fail: bool, should_analysis_fail: bool) -> None:
             "INCREMENTAL_CHECK": output_for_incremental_check,
             "REPAIR": output_for_repair,
         }[job["job_type"]]
-        builder(job)
+        try:
+            builder(job)
+        except JobAbort as abort:
+            job.pop("output", None)
+            job["status"] = "FAILED"
+            job["error"] = {
+                "code": abort.code,
+                "stage": abort.stage,
+                "message": abort.message,
+                "detail": abort.detail,
+                "at": now_iso(),
+            }
+            return
 
         output_errors = schema_errors(OUTPUT_SCHEMA[job["job_type"]], job["output"])
         if output_errors:
@@ -594,6 +843,17 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, snapshot)
             return
 
+        m = re.fullmatch(r"/v1/environments/([A-Za-z0-9_-]+)", self.path)
+        if m:
+            with LOCK:
+                env = ENVIRONMENTS.get(m.group(1))
+                snapshot = dict(env) if env else None
+            if snapshot is None:
+                self._error(404, "EXEC_4002", f"环境不存在：{m.group(1)}")
+                return
+            self._send(200, snapshot)
+            return
+
         m = re.fullmatch(r"/v1/artifacts/([A-Za-z0-9_-]+)", self.path)
         if m:
             with LOCK:
@@ -622,13 +882,14 @@ def main() -> None:
     ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args()
 
-    load_static_a03_artifacts()
+    load_static_records()
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
     print("DevOps mock 已启动（内存态，无持久化）")
     for path, jt in sorted(ENDPOINTS.items()):
         print(f"  POST http://{args.host}:{args.port}{path:<30} {jt}")
     print(f"  GET  http://{args.host}:{args.port}/v1/jobs/{{job_id}}")
     print(f"  GET  http://{args.host}:{args.port}/v1/artifacts/{{artifact_id}}")
+    print(f"  GET  http://{args.host}:{args.port}/v1/environments/{{environment_id}}")
     print("  Ctrl+C 停止")
     try:
         srv.serve_forever()

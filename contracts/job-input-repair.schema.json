@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-input-repair.schema.json",
   "title": "RepairJobInput",
-  "description": "REPAIR 任务的专有输入。挂在统一任务模型的 input 字段下。修复只针对缺失依赖，因此报告引用必须限定为 MISSING。",
+  "description": "REPAIR 任务的专有输入。挂在统一任务模型的 input 字段下。修复只针对缺失依赖，因此报告引用必须限定为 MISSING。环境按 environment_id 引用，不内嵌镜像与构建命令——构建方式只在 Environment 里表达；验证与复检不是构建，仍由本任务给出。",
   "type": "object",
-  "required": ["repository", "report", "environment", "limits"],
+  "required": ["repository", "report", "environment_id", "verification", "limits"],
   "additionalProperties": false,
   "properties": {
     "repository": {
@@ -13,28 +13,33 @@
       "required": ["url", "commit"],
       "additionalProperties": false,
       "properties": {
-        "url": { "type": "string", "minLength": 1 },
+        "url": {
+          "type": "string",
+          "pattern": "^https://",
+          "description": "仓库地址，须可由修复环境克隆。"
+        },
         "commit": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$",
-          "description": "完整 commit SHA。修复产出的补丁必须能干净地应用在这个版本上，且报告须属于同一版本——两者不一致时任务以 REPAIR_6001 失败。"
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "**完整 40 位** commit SHA，不接受缩写：报告里的每条发现都带完整 SHA，版本比对必须逐字符相等，缩写会让「同一版本」变成模糊判断。修复产出的补丁必须能干净地应用在这个版本上，且报告须属于同一版本——两者不一致时任务以 REPAIR_6001 失败。"
         }
       }
     },
     "report": {
       "type": "object",
-      "description": "待修复问题的报告引用。",
-      "required": ["artifact_id", "artifact_uri", "finding_type"],
+      "description": "待修复问题的报告引用。取回内容一律走 GET /v1/artifacts/{artifact_id}，由全局产物编号定位；artifact_uri 是可选的原始地址，仅作对照。",
+      "required": ["artifact_id", "finding_type"],
       "additionalProperties": false,
       "properties": {
         "artifact_id": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]*$"
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "报告产物的全局编号。这是唯一的取回依据：产物按编号定位，存储位置由平台决定。"
         },
         "artifact_uri": {
           "type": "string",
           "pattern": "^artifact://[^/]+/[^/]+/.+$",
-          "description": "报告地址。读取方式须双方事先约定（见 artifact.schema.json）。"
+          "description": "报告的原始地址，可选。填了必须与产物记录中的 uri 一致，供人工对照；寻址仍以 artifact_id 为准。"
         },
         "finding_type": {
           "const": "MISSING",
@@ -42,48 +47,41 @@
         },
         "commit": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$",
-          "description": "报告所依据的源码版本 SHA。填了，服务端在**受理时**就能与本请求的 repository.commit 比对，不一致直接以 400 拒绝（error.code = REPAIR_6001），无须先取回报告产物；不填，则由服务端取回报告后校验其 repository.commit，不一致时任务以 REPAIR_6001 失败。建议填——报告属于哪个源码版本是修复成立的前提，不该等到执行阶段才发现不符。"
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "报告所依据的源码版本 SHA，**完整 40 位**——与 `repository.commit` 一致：两者要逐字符比对，缩写会让「同一版本」变成模糊判断。填了，服务端在**受理时**就能与本请求的 repository.commit 比对，不一致直接以 400 拒绝（error.code = REPAIR_6001），无须先取回报告产物；不填，则由服务端取回报告后校验其 repository.commit，不一致时任务以 REPAIR_6001 失败。建议填——报告属于哪个源码版本是修复成立的前提，不该等到执行阶段才发现不符。"
         }
       }
     },
-    "project_subdir": {
+    "environment_id": {
       "type": "string",
-      "description": "项目根目录相对仓库根的路径，默认 \".\"。与 job-input-draft 的同名字段一致：报告里的 location.file 与 makefile_path 都相对这个根解析。缺了它，报告中的路径在非仓库根项目上无法定位。",
-      "default": ".",
-      "examples": ["fixtures/mdfixer", "."]
+      "pattern": "^env-[A-Za-z0-9_-]+$",
+      "description": "修复所依据的环境身份，由环境生成服务产出。补丁产出后须在同一环境中复构建与复检，环境不一致则结论不可比。镜像、项目根、工作目录与构建命令都从该环境读取，不再在本任务中输入。",
+      "examples": ["env-draft-mdfixer-001"]
     },
     "makefile_path": {
       "type": "string",
-      "description": "构建脚本相对项目根目录的路径。用于识别声明风格并生成同风格补丁。",
+      "pattern": "^(?!/)(?!.*(?:^|/)[.][.](?:/|$)).+$",
+      "description": "构建脚本相对**环境项目根**的路径，用于识别声明风格并生成同风格补丁。必须是相对路径：不接受绝对路径，也不接受含 `..` 的路径。",
       "default": "Makefile",
       "examples": ["Makefile", "Makefile.in"]
     },
-    "environment": {
+    "verification": {
       "type": "object",
-      "description": "修复所依据的运行环境。补丁产出后须在同一环境中复构建与复检，环境不一致则结论不可比。",
-      "required": ["image_ref", "build_command", "verify_command"],
+      "description": "修复成立与否的判据。构建方式由环境给出，这里只补环境不承载的两条：功能验证与依赖复检。",
+      "required": ["verify_command", "recheck_command"],
       "additionalProperties": false,
       "properties": {
-        "image_ref": {
-          "type": "string",
-          "minLength": 1,
-          "description": "可运行镜像引用，通常来自环境生成服务的输出。"
-        },
-        "build_command": {
-          "type": "string",
-          "minLength": 1,
-          "examples": ["make"]
-        },
         "verify_command": {
           "type": "string",
           "minLength": 1,
-          "description": "验证修改是否生效的命令。",
-          "examples": ["./hello"]
+          "description": "验证修改是否生效且未改变原行为的命令，在环境的项目根下执行。",
+          "examples": ["./app"]
         },
         "recheck_command": {
           "type": "string",
-          "description": "复检依赖问题的命令，通常为重新调用检测服务。缺失时只做构建与功能验证。"
+          "minLength": 1,
+          "description": "复检依赖问题的命令，通常为重新调用检测服务。**必填**：输出里的 `verification.recheck_ok` 是「补丁是否真的消除了依赖问题」的唯一依据，而它只能由复检得出。此字段可选时，recheck_ok 与「fixed 非空则三项为真」的不变式会互相矛盾——不跑复检就无法断言复检通过。",
+          "examples": ["make clean && make"]
         }
       }
     },

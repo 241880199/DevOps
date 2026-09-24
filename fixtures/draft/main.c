@@ -2,6 +2,6 @@
 
 int main(void)
 {
-    puts("hello draft");
+    puts("hello E3");
     return 0;
 }

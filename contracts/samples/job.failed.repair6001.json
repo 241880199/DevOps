@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "job_id": "job-repair03",
   "trace_id": "trace-repair-0003",
   "job_type": "REPAIR",
@@ -13,18 +13,16 @@
   "input": {
     "repository": {
       "url": "https://github.com/241880199/DevOps",
-      "commit": "d47a1528a1b2c3d4e5f60718293a4b5c6d7e8f90"
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
     },
     "report": {
-      "artifact_id": "md-report-001",
-      "artifact_uri": "artifact://b03/job-oracle-mdfixer01/error-report.json",
+      "artifact_id": "error-report-003",
+      "artifact_uri": "artifact://oracle/job-oracle-mdfixer01/error-report.json",
       "finding_type": "MISSING"
     },
-    "project_subdir": "fixtures/mdfixer",
+    "environment_id": "env-draft-mdfixer-001",
     "makefile_path": "Makefile",
-    "environment": {
-      "image_ref": "mdfixer-fixture:1.0",
-      "build_command": "make",
+    "verification": {
       "verify_command": "./app",
       "recheck_command": "make clean && make"
     },
@@ -37,7 +35,7 @@
     "code": "REPAIR_6001",
     "stage": "REPAIR",
     "message": "修复输入不可用：报告所依据的源码版本与请求的 repository.commit 不一致，报告失效。",
-    "detail": "请求 commit d47a1528…，报告 repository.commit 为 b06e66ec…；请求未声明 report.commit，故在执行阶段取回报告后才发现。补丁若按该报告生成，将无法干净地应用到目标版本上。",
+    "detail": "请求 commit d47a1523…，报告 repository.commit 为 31cd2ad9…；请求未声明 report.commit，故在执行阶段取回报告后才发现。补丁若按该报告生成，将无法干净地应用到目标版本上。",
     "at": "2026-09-20T11:40:06.000Z"
   }
 }

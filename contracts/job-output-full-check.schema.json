@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-output-full-check.schema.json",
   "title": "FullCheckJobOutput",
-  "description": "BuildChecker 全量检测输出 A03 提案。",
+  "description": "BuildChecker 全量检测输出 接口提案。",
   "type": "object",
   "required": ["resolved_commit", "environment_id", "actual_graph_artifact_id", "declared_graph_artifact_id", "error_report_artifact_id", "summary"],
   "additionalProperties": false,

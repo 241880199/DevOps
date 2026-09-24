@@ -1,0 +1,12 @@
+{
+  "artifact_id": "error-report-003",
+  "type": "ERROR_REPORT",
+  "uri": "artifact://oracle/job-oracle-mdfixer01/error-report.json",
+  "media_type": "application/json",
+  "producer_job_id": "job-oracle-mdfixer01",
+  "environment_id": "env-draft-mdfixer-001",
+  "sha256": "7a26a67a564a769ca7df42653d00876541fed9e7b572606a34aa022b29ab5617",
+  "size_bytes": 2386,
+  "created_at": "2026-09-20T09:40:00.000Z",
+  "source_commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
+}

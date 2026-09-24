@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devops-course.local/schemas/job-output-incremental-check.schema.json",
   "title": "IncrementalCheckJobOutput",
-  "description": "EChecker 增量检测输出 A03 提案。按照 contract-phase 的产出方矩阵，EChecker 交付错误报告和变化集，不产出 ACTUAL_GRAPH。",
+  "description": "EChecker 增量检测输出 接口提案。按照 contract-phase 的产出方矩阵，EChecker 交付错误报告和变化集，不产出 ACTUAL_GRAPH。",
   "type": "object",
   "required": ["base_commit", "resolved_commit", "environment_id", "error_report_artifact_id", "changes"],
   "additionalProperties": false,

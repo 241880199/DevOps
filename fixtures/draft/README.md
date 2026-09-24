@@ -26,7 +26,7 @@ make
 ./hello
 ```
 
-预期：标准输出恰好一行 `hello draft`，退出码 `0`。
+预期：标准输出恰好一行 `hello E3`，退出码 `0`。
 
 ## 两层成功判据
 
@@ -51,7 +51,7 @@ make clean
 
 | 文件 | 作用 | 预期结果 |
 | --- | --- | --- |
-| `Dockerfile.ok` | 参考成功样例 | 构建成功，容器输出 `hello draft` |
+| `Dockerfile.ok` | 参考成功样例 | 构建成功，容器输出 `hello E3` |
 | `Dockerfile.broken` | 故障样例 | 构建失败，日志含 `make: not found` |
 
 `Dockerfile.broken` 的设计意图：基础镜像 `python:3.13-slim` 里**没有 C 工具链**，构建在第 `RUN make` 步非零退出。这正是需要从日志中定位并修复的那类错误——错误信息可定位、可归因、有明确修法（换基础镜像或补装 `build-essential`）。
@@ -59,7 +59,7 @@ make clean
 ```bash
 # 成功样例
 docker build -f fixtures/draft/docker/Dockerfile.ok     -t draft-fixture-ok     fixtures/draft
-docker run   --rm draft-fixture-ok        # 预期输出 hello draft
+docker run   --rm draft-fixture-ok        # 预期输出 hello E3
 
 # 故障样例（预期失败）
 docker build -f fixtures/draft/docker/Dockerfile.broken -t draft-fixture-broken fixtures/draft

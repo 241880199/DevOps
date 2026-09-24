@@ -1,9 +1,9 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "repository": {
     "url": "https://github.com/241880199/DevOps",
     "canonical_url": "https://github.com/241880199/DevOps",
-    "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8"
+    "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
   },
   "environment_id": "env-draft-fixture-mode0",
   "produced_by": {
@@ -21,7 +21,7 @@
       "type": "MISSING",
       "target": "main.o",
       "dependency": "config.h",
-      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
       "detector": "BuildChecker",
       "provenance": "TOOL",
       "location": {
@@ -38,7 +38,7 @@
       "type": "MISSING",
       "target": "main.o",
       "dependency": "feature.h",
-      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
       "detector": "INSTRUCTOR_ORACLE",
       "provenance": "INSTRUCTOR_ORACLE",
       "location": {
@@ -55,7 +55,7 @@
       "type": "REDUNDANT",
       "target": "main.o",
       "dependency": "unused.h",
-      "commit": "b06e66ec9f3d2a1b4c5e6f708192a3b4c5d6e7f8",
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
       "detector": "BuildChecker",
       "provenance": "TOOL",
       "location": {

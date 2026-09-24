@@ -1,0 +1,12 @@
+{
+  "artifact_id": "image-ref-001",
+  "type": "IMAGE_REF",
+  "uri": "artifact://draft/job-draft01/image-ref.txt",
+  "media_type": "text/plain",
+  "producer_job_id": "job-draft01",
+  "environment_id": null,
+  "sha256": "9e571c5279f17a9912651a95e5d15886030c9cc6402dd397bf4b3e27b3a16883",
+  "size_bytes": 21,
+  "created_at": "2026-09-20T10:03:41.000Z",
+  "source_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
+}

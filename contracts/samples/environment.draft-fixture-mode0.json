@@ -1,0 +1,8 @@
+{
+  "environment_id": "env-draft-fixture-mode0",
+  "image": "image-ref-001",
+  "project_root": "/workspace/fixtures/draft",
+  "working_directory": "/workspace/fixtures/draft",
+  "build_command": "make",
+  "runtime_capabilities": ["ptrace"]
+}

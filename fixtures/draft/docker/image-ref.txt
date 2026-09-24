@@ -1,0 +1,1 @@
+draft-fixture-ok:1.0

@@ -2,7 +2,7 @@
 # 这是 DRAFT 应当产出的目标形态，用作本地基线。
 #
 #   构建：docker build -f fixtures/draft/docker/Dockerfile.ok -t draft-fixture-ok fixtures/draft
-#   验证：docker run --rm draft-fixture-ok        # 预期输出 hello draft
+#   验证：docker run --rm draft-fixture-ok        # 预期输出 hello E3
 
 FROM ubuntu:22.04
 
