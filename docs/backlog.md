@@ -111,7 +111,7 @@
 ## 已知限制
 
 1. **`validate.py` 与 `mock_server.py` 均依赖** `jsonschema`。选择理由见 `docs/AI_USAGE.md` 第 5 条——schema 必须作为唯一事实来源，手写第二套校验必然漂移。
-2. **mock 不执行真实构建**。它是契约的可执行说明，不是可用服务；`result`、`fixed`、镜像引用内容等为固定值，环境记录里的 `runtime_capabilities` 也不会被推断或校验。
+2. **mock 不执行真实构建**。它是契约的可执行说明，不是可用服务；`result`、`fixed`、镜像引用内容等为固定值。环境能力只按调用方声明抄录（不推断），并在**检测类任务**上强制要求 `ptrace`（见 ADR-011 的遗留缺口）。
 3. **`FULL_CHECK` / `INCREMENTAL_CHECK` 的 mock 只验证契约**。它会生成符合 Schema 且可下载的空图、空报告，但不运行真实 BuildChecker/EChecker，不能作为检测效果证明。
 4. **产物引用失效未处理**。产物被清理后 URI 仍存在，接收方会遇到「引用有效但内容缺失」，当前未定义该情形下的错误码（修复侧由 `REPAIR_6001` 部分覆盖）。
 5. **`fixtures/` 下的构建未在本机验证**。宿主为 Windows 且无 `make`/`gcc`，验证需在 Linux 容器中进行。

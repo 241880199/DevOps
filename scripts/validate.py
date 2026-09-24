@@ -40,6 +40,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "contracts"
 SAMPLES = CONTRACTS / "samples"
 DETECTION_FIXTURES = ROOT / "fixtures" / "detection"
+DOCS = ROOT / "docs"
 
 DETECTION_ARTIFACTS = (
     ("artifact.actual-graph-001.json", DETECTION_FIXTURES / "full-check" / "actual-graph.json", "dependency-graph"),
@@ -306,6 +307,10 @@ def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
 
     for name, job_type, mutators in cases:
         payload = load_json(SAMPLES / name)
+        if not isinstance(payload.get("input"), dict):
+            rep.check(f"{name} 提供 input 供反例改写", False,
+                      "样例没有 input，无法构造反例；这里报失败而不是抛 KeyError")
+            continue
         for label, mutate in mutators:
             req = copy.deepcopy(payload)
             mutate(req["input"])
@@ -983,6 +988,8 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
                   "引用了没有环境记录的 environment_id")
 
     # 创建请求样例与对应成功响应的 input 必须逐字段一致：调用方照响应样例拼请求是很自然的
+    # 做法。覆盖范围是「每类任务的创建请求 ↔ 该类成功响应」四对——其余 Job 样例是另起的
+    # 一次任务（trace_id 不同，例如失败样例只跑 1 轮），它们的输入本来就允许不同。
     # 做法，两者一旦分叉，照抄的那一方就会拿到与样例不同的任务——比如丢了能力需求，
     # 于是生成的环境不带 `ptrace`，后续任何检测引用它都会被拒。
     for req_name, job_name in (
@@ -991,9 +998,12 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
         ("create-incremental-check-job.request.json", "job.incremental-check.succeeded.json"),
         ("create-repair-job.request.json", "job.repair.succeeded.json"),
     ):
+        req_input = sample(req_name).get("input")
+        job_input = sample(job_name).get("input")
         rep.check(f"{job_name} 的 input 与 {req_name} 逐字段一致",
-                  sample(req_name)["input"] == sample(job_name)["input"],
-                  "响应样例的 input 与创建请求样例不同：两份样例描述的不是同一个任务")
+                  bool(req_input) and req_input == job_input,
+                  "响应样例的 input 与创建请求样例不同——照响应样例拼请求的调用方会拿到"
+                  "另一个任务（例如丢了能力需求）；缺 input 时同样报失败而不是抛异常")
 
     draft = sample("job.succeeded.json")["output"]
     rep.check("DRAFT 输出回报 environment_id 且有对应环境记录",
@@ -1090,6 +1100,17 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
                   bool(payload["verification"].get("recheck_command")),
                   "recheck_ok 是「补丁是否真的消除依赖问题」的唯一依据，必须执行复检")
 
+    # 比「提交等于环境产出提交」更通用的一条：任何产物记录声明了环境，都必须能解析到
+    # 样例环境。前者只在「环境就是为这份样例版本产出的」前提下成立（两份人工报告都如此），
+    # 而环境本来就可以跨提交复用——增量报告的环境产自基线提交，是合法的。
+    for path in sorted(SAMPLES.glob("artifact*.json")):
+        record = load_json(path)
+        env_id = record.get("environment_id")
+        if env_id is None:
+            continue
+        rep.check(f"{path.name} 声明的环境 {env_id} 有定义", env_id in envs,
+                  "产物记录指向了没有环境定义的 environment_id")
+
     patch = sample("artifact.patch.json")
     rep.check("修复产物记录了所属环境",
               patch.get("environment_id") in envs,
@@ -1110,6 +1131,9 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
         image = image_records.get((envs.get(env_id) or {}).get("image")) or {}
         commit_ok = (bool(image.get("source_commit"))
                      and report_obj["repository"]["commit"] == image["source_commit"])
+        # 适用范围：这两份环境就是为各自的样例版本产出的，所以可比。环境跨提交复用是
+        # 合法的（增量报告的环境产自基线提交），因此这不是一条通用不变式——通用的一条
+        # 写在下面（产物记录声明的环境必须存在）。
         rep.check(f"{label}所依据的提交等于该环境产出时的提交", commit_ok,
                   f"报告 {report_obj['repository']['commit']}；"
                   f"环境 {env_id} 的镜像产物提交 {image.get('source_commit')!r}")
@@ -1135,6 +1159,59 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
               "两者相同时该失败样例不成立")
 
 
+def json_blocks(text: str):
+    """提取 Markdown 里 ```json 围栏的内容，连同起始行号。"""
+    out, in_block, buf, start = [], False, [], 0
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if line.strip().startswith("```json"):
+            in_block, buf, start = True, [], lineno + 1
+        elif in_block and line.strip().startswith("```"):
+            out.append((start, "".join(l + "\n" for l in buf)))
+            in_block = False
+        elif in_block:
+            buf.append(line)
+    return out
+
+
+def check_15_doc_examples(schemas: dict, rep: Report) -> None:
+    """文档里的 JSON 示例也要过契约。
+
+    示例是给人抄的：它与契约一旦漂移，照抄的一方就会拼出被拒绝的请求或不合规的记录。
+    这类问题出现过两次（产物示例缺必填字段、请求示例漏了新增字段），都在提交后才被发现；
+    把示例纳入校验，漂移会在本地就被拦住。
+    """
+    print("\n检查 15：文档中的 JSON 示例符合契约")
+
+    files = [ROOT / "README.md"] + sorted(DOCS.rglob("*.md"))
+    seen = 0
+    for path in files:
+        rel = path.relative_to(ROOT)
+        for lineno, block in json_blocks(path.read_text(encoding="utf-8")):
+            try:
+                doc = json.loads(block)
+            except ValueError:
+                continue          # 片段示例（不含完整 JSON），跳过
+            if not isinstance(doc, dict):
+                continue
+            if "job_type" in doc and "input" in doc:
+                schema = "job-create-request"
+            elif "artifact_id" in doc and "type" in doc:
+                schema = "artifact"
+            elif "findings" in doc and "repository" in doc:
+                schema = "error-report"
+            else:
+                continue
+            seen += 1
+            errs = errors_of(schemas[schema], doc)
+            rep.check(f"{rel}:{lineno} 的示例符合 {schema}", not errs, "\n".join(errs))
+            if schema == "job-create-request" and not errs:
+                errs = errors_of(schemas[INPUT_SCHEMA[doc["job_type"]]], doc["input"])
+                rep.check(f"{rel}:{lineno} 的示例输入符合 {doc['job_type']} 契约",
+                          not errs, "\n".join(errs))
+    rep.check("文档中至少有一个可校验的 JSON 示例", seen > 0,
+              "一个都没找到，说明提取逻辑失效了")
+
+
 # -------------------------------------------------------------------- main
 
 def main() -> int:
@@ -1146,20 +1223,31 @@ def main() -> int:
     print(f"已加载 schema：{', '.join(sorted(schemas))}")
 
     rep = Report()
-    check_01_all_types_pass(schemas, rep)
-    check_02_unknown_job_type_rejected(schemas, rep)
-    check_03_missing_required_rejected(schemas, rep)
-    check_04_error_semantics(schemas, rep)
-    check_05_consistency(schemas, rep)
-    check_06_artifact_digest_is_real(schemas, rep)
-    check_07_error_codes_documented(schemas, rep)
-    check_08_success_invariants(schemas, rep)
-    check_09_repair_consumes_missing_only(schemas, rep)
-    check_10_repair_failure_boundary(schemas, rep)
-    check_11_repair_fixture_is_real(schemas, rep)
-    check_12_detection_outputs(schemas, rep)
-    check_13_contract_phase_alignment(schemas, rep)
-    check_14_environment_handoff(schemas, rep)
+    checks = (
+        check_01_all_types_pass,
+        check_02_unknown_job_type_rejected,
+        check_03_missing_required_rejected,
+        check_04_error_semantics,
+        check_05_consistency,
+        check_06_artifact_digest_is_real,
+        check_07_error_codes_documented,
+        check_08_success_invariants,
+        check_09_repair_consumes_missing_only,
+        check_10_repair_failure_boundary,
+        check_11_repair_fixture_is_real,
+        check_12_detection_outputs,
+        check_13_contract_phase_alignment,
+        check_14_environment_handoff,
+        check_15_doc_examples,
+    )
+    for check in checks:
+        try:
+            check(schemas, rep)
+        except Exception as exc:  # noqa: BLE001
+            # 校验器自身崩掉时也要留下可读的失败并继续跑后面的检查：停在 traceback 上，
+            # 读者既看不到失败汇总，也不知道后面还有哪些检查没跑。
+            rep.check(f"{check.__name__} 正常执行", False,
+                      f"{type(exc).__name__}: {exc}")
     return rep.summary()
 
 

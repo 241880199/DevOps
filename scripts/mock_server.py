@@ -475,8 +475,9 @@ def output_for_draft(job: dict) -> dict:
     raw_subdir = build.get("project_subdir") or "."
     segments = raw_subdir.rstrip("/").split("/")
     # 判据看**原始值**：先 strip 再判 startswith("/") 的话，绝对路径会被静默改成相对路径
-    # （"/etc" → "etc"），守卫就成了死代码。空段（"a//b"）同样拒绝，不做静默折叠。
-    if raw_subdir.startswith("/") or ".." in segments or "" in segments:
+    # （"/etc" → "etc"），守卫就成了死代码。空段一律拒绝、不做静默折叠——判据要覆盖尾部
+    # （"a//"）与中间（"a//b"）两种，只看 split 的结果会把尾部空段吃掉。
+    if raw_subdir.startswith("/") or ".." in segments or "" in segments or "//" in raw_subdir:
         raise JobAbort(
             "EXEC_4002", "EXEC",
             "项目根越界：project_subdir 必须是仓库内的相对路径。",
