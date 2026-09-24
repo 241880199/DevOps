@@ -20,6 +20,43 @@
 > 本分支的四类任务 Schema 是双方按共享结构整理的可执行提案（依赖检测服务见 ADR-010，环境生成与依赖修复服务见 ADR-011），
 > 逐接口确认写入 `contract-phase/interfaces/` 之后才称为冻结。
 
+## 迁移须知（1.0 → 2.0）
+
+四类任务已统一到 2.0（见 `docs/ADR/ADR-011` 与 `docs/变更说明-2.0迁移.md`）。**如果你此前已经检出过本仓库**，
+下面三件事会让你的本地状态与远端不一致，按对应的处置做一次即可。
+
+### 1. 工作区行尾（必做一次）
+
+`.gitattributes` 现在把被逐字节核验的样例文件固定为 LF。**已有的工作区不会自动更新**：Windows 上
+`core.autocrlf=true` 检出过的文件仍是 CRLF，于是 `python scripts/validate.py` 的摘要检查会失败
+（不是你的问题，也不是代码的问题）。在**工作区干净**的前提下任选一种：
+
+```bash
+# 选项 A：重新克隆（最干净）
+git clone https://github.com/241880199/DevOps.git devops-new
+
+# 选项 B：原地按新的行尾策略重新检出
+git status --porcelain            # 必须是空的；不空就先提交或 stash
+git rm --cached -r -q . && git reset --hard
+```
+
+### 2. 契约与 mock 的行为收紧
+
+- `schema_version` 由 `1.0` 递增为 `2.0`；`configuration_id` → `environment_id`；`image_ref`（裸镜像 tag）
+  → `image_artifact_id`（`IMAGE_REF` 产物编号）；修复请求不再内嵌环境定义与 `project_subdir`。
+- mock 现在会**直接拒绝**（`400`）四类以前会照跑的输入：引用未登记的环境、检测请求引用未声明 `ptrace`
+  的环境、`commit` 解析不出仓库中真实存在的提交、修复输入的报告不是 `ERROR_REPORT`／属于别的环境／
+  内容不合契约／没有 `MISSING` 发现。自写的联调脚本若走「用 mock 建环境再跑检测」这条路，请确认
+  生成环境时声明了 `runtime_capabilities: ["ptrace"]`。
+
+### 3. 改名清单
+
+| 旧路径 | 新路径 |
+| --- | --- |
+| `docs/A03_TASKS.md` | `docs/检测侧任务清单.md` |
+| `docs/配对组接口交换记录.md` | `docs/接口交换记录.md` |
+| `fixtures/a03/` | `fixtures/detection/` |
+
 ## 目录结构
 
 ```
@@ -54,6 +91,7 @@ fixtures/
 
 docs/
   接口说明.md                          ★ 面向下游消费方的对接文档
+  变更说明-2.0迁移.md                  1.0 → 2.0 的字段对照、行为收紧与对接方待办
   ADR/                                架构决策记录 001–011
   AI_USAGE.md                         设计过程与 AI 使用记录
   接口交换记录.md               与依赖检测服务的三轮接口交换（含待确认项）
