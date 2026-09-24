@@ -12,6 +12,7 @@
       "verify_expect": "hello E3",
       "project_subdir": "fixtures/draft"
     },
+    "runtime_capabilities": ["ptrace"],
     "limits": {
       "max_iterations": 5,
       "timeout_seconds": 600

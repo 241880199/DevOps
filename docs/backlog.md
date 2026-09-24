@@ -41,6 +41,9 @@
 | **报告可用性检查** | `scripts/mock_server.py` 的 `report_reference_problems` | 编号取不到、产物不是 `ERROR_REPORT`、报告属于别的环境、报告不含 `MISSING` 发现——四种情形均在受理阶段被拒绝 |
 | **仓库版本解析** | `scripts/mock_server.py` 的 `resolve_commit` | 缩写与缺省被解析为完整 40 位 SHA；不存在的提交使任务失败，产物记录里不会出现假提交 |
 | **产物记录自检** | `scripts/mock_server.py` 的 `register_artifact` | 登记前按 `artifact.schema.json` 自检，违约即让任务失败 |
+| **能力需求交接** | `scripts/mock_server.py`、`contracts/samples/create-dockerfile-job.request.json` | 环境生成请求声明所需能力（`ptrace`），环境记录据此固定；检测任务引用未声明 `ptrace` 的环境被拒绝 |
+| **路径越界防护** | 两个输入 schema 的 `pattern` + `scripts/mock_server.py` | `project_subdir` 与 `makefile_path` 只接受仓库内相对路径，绝对路径与 `..` 在受理阶段被拒；环境的 `project_root` 必须落在工作区内（请求侧与产出侧各判一次） |
+| **报告内容校验** | `scripts/mock_server.py` 的 `report_body` | 取回的报告按 `error-report.schema.json` 校验；内容解析不了、与产物记录不一致、无 `MISSING` 发现均被拒 |
 | 固定输入样例（DRAFT） | `fixtures/draft/` | `make` 构建、`./hello` 输出 `hello E3` |
 | **固定输入样例（REPAIR）** | `fixtures/mdfixer/` | 真实源码 + 人工报告 + 参考补丁；报告每条发现的 `location` 都指向磁盘上真实的规则行 |
 | 接口样例 | `contracts/samples/` | 覆盖创建/受理、任务状态、各类产物记录、两个环境记录与错误报告（文件数量以目录为准） |
@@ -85,7 +88,7 @@
 | `report.commit` 是否被采纳 | 依赖检测服务接受该可选字段并将在交付给 MDFixer 的请求侧携带 |
 | `REPAIR_6001` 的两种拒绝载体 | 依赖检测服务已接受受理阶段 `400` 与执行阶段 `FAILED` 两种载体 |
 | 环境定义的查询方式 | 环境生成与依赖修复服务已给出提案：`GET /v1/environments/{environment_id}`，样例与拒绝路径齐全，待双方冻结 |
-| 「环境不存在」用哪个错误码 | 共享错误码表尚未定义；mock 暂以 `404` + `EXEC_4002` 承载 |
+| **受理阶段拒绝的错误码载体** | 共享错误码表只有描述执行期故障的 5 个码，没有「请求不合法 / 输入不可用」这一档；本地实现暂用 `EXEC_4002` 承载。同理，「环境不存在」的 `404` 也缺一档——两处都建议双方补进共享表 |
 
 ### 数据真实性
 

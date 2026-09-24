@@ -47,8 +47,8 @@
         },
         "commit": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$",
-          "description": "报告所依据的源码版本 SHA。填了，服务端在**受理时**就能与本请求的 repository.commit 比对，不一致直接以 400 拒绝（error.code = REPAIR_6001），无须先取回报告产物；不填，则由服务端取回报告后校验其 repository.commit，不一致时任务以 REPAIR_6001 失败。建议填——报告属于哪个源码版本是修复成立的前提，不该等到执行阶段才发现不符。"
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "报告所依据的源码版本 SHA，**完整 40 位**——与 `repository.commit` 一致：两者要逐字符比对，缩写会让「同一版本」变成模糊判断。填了，服务端在**受理时**就能与本请求的 repository.commit 比对，不一致直接以 400 拒绝（error.code = REPAIR_6001），无须先取回报告产物；不填，则由服务端取回报告后校验其 repository.commit，不一致时任务以 REPAIR_6001 失败。建议填——报告属于哪个源码版本是修复成立的前提，不该等到执行阶段才发现不符。"
         }
       }
     },
@@ -60,7 +60,8 @@
     },
     "makefile_path": {
       "type": "string",
-      "description": "构建脚本相对环境项目根的路径。用于识别声明风格并生成同风格补丁。",
+      "pattern": "^(?!/)(?!.*(?:^|/)[.][.](?:/|$)).+$",
+      "description": "构建脚本相对**环境项目根**的路径，用于识别声明风格并生成同风格补丁。必须是相对路径：不接受绝对路径，也不接受含 `..` 的路径。",
       "default": "Makefile",
       "examples": ["Makefile", "Makefile.in"]
     },

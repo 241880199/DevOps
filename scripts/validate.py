@@ -257,7 +257,11 @@ def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
           ("删除 limits.timeout_seconds", lambda i: i["limits"].pop("timeout_seconds")),
           ("删除 repository", lambda i: i.pop("repository")),
           ("context_documents 超过 2 个",
-           lambda i: i.__setitem__("context_documents", ["a.md", "b.md", "c.md"]))]),
+           lambda i: i.__setitem__("context_documents", ["a.md", "b.md", "c.md"])),
+          ("project_subdir 相对穿越（../../etc）",
+           lambda i: i["build"].__setitem__("project_subdir", "../../etc")),
+          ("project_subdir 是绝对路径（/etc）",
+           lambda i: i["build"].__setitem__("project_subdir", "/etc"))]),
 
         ("create-repair-job.request.json", "REPAIR",
          [("删除 report（修复无目标）", lambda i: i.pop("report")),
@@ -272,6 +276,10 @@ def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
            lambda i: i["verification"].pop("recheck_command")),
           ("repository.commit 用缩写（版本比对必须逐字符相等）",
            lambda i: i["repository"].__setitem__("commit", "31cd2ad")),
+          ("report.commit 用缩写（要与 repository.commit 逐字符比对）",
+           lambda i: i["report"].__setitem__("commit", "31cd2ad")),
+          ("makefile_path 相对穿越（../Makefile）",
+           lambda i: i.__setitem__("makefile_path", "../Makefile")),
           ("删除 repository", lambda i: i.pop("repository"))]),
 
         ("create-full-check-job.request.json", "FULL_CHECK",
@@ -980,6 +988,29 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
     rep.check("检测所用环境声明了 ptrace 运行能力",
               "ptrace" in detect_env.get("runtime_capabilities", []),
               "运行能力是需求方（依赖检测需要读文件访问记录）提出的，必须由环境声明")
+    rep.check("环境生成请求样例声明了它要交付的环境所需能力",
+              "ptrace" in (sample("create-dockerfile-job.request.json")["input"]
+                           .get("runtime_capabilities") or []),
+              "能力需求由调用方提出、由环境生成服务固定进环境记录，不能靠下游假设默认具备")
+
+    # 路径越界是两件事，判据不同：
+    # 请求里的两个字段是**仓库内相对路径**，不许绝对、不许含 `..`；
+    # 环境的 project_root 是**容器内绝对路径**，它的规则是必须落在工作区里。
+    for label, value in (
+        ("环境生成请求的 project_subdir",
+         sample("create-dockerfile-job.request.json")["input"]["build"].get("project_subdir", ".")),
+        ("修复请求的 makefile_path",
+         sample("create-repair-job.request.json")["input"].get("makefile_path", "Makefile")),
+    ):
+        rep.check(f"{label} 是仓库内相对路径（{value}）",
+                  bool(value) and not value.startswith("/") and ".." not in value.split("/"),
+                  "绝对路径或含 `..` 的路径会逃出预期目录")
+
+    for env_id, env in sorted(envs.items()):
+        root = env.get("project_root", "")
+        rep.check(f"{env_id} 的项目根落在工作区内（{root}）",
+                  root.startswith("/workspace") and ".." not in root.split("/"),
+                  "容器内路径必须落在约定的工作区之内")
 
     repair = sample("create-repair-job.request.json")["input"]
     rep.check("REPAIR 输入不内嵌环境定义、也不带 project_subdir",

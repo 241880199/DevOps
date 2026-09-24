@@ -261,6 +261,12 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
                 f"environment_id: 环境 {env_id} 未注册。环境由环境生成服务产出，"
                 f"任务只能引用已存在的环境（GET /v1/environments/{{environment_id}}）"
             )
+        elif (job_type in {"FULL_CHECK", "INCREMENTAL_CHECK"}
+              and "ptrace" not in ENVIRONMENTS[env_id].get("runtime_capabilities", [])):
+            errs.append(
+                f"environment_id: 环境 {env_id} 未声明 ptrace——依赖检测要读文件访问记录，"
+                f"这项能力属于环境的需求，应在生成环境时提出，而不是假设默认具备"
+            )
 
     if job_type == "INCREMENTAL_CHECK":
         baseline = payload["baseline"]
@@ -322,28 +328,39 @@ def report_reference_problems(payload: dict) -> list[str]:
             f"report/artifact_uri: {report['artifact_uri']} "
             f"与产物记录的 uri {record.get('uri')} 不一致"
         )
-    findings = missing_findings(record)
-    if findings is not None and not findings:
-        errs.append(
-            "report/artifact_id: 报告里没有 MISSING 发现——没有可修复的目标时"
-            "「修复」无意义，请求不被受理（REPAIR_6001）"
-        )
+    doc, body_problems = report_body(record)
+    errs.extend(f"report/artifact_id: {p}" for p in body_problems)
+    if doc is not None:
+        declared_commit = doc["repository"]["commit"]
+        if record.get("source_commit") != declared_commit:
+            errs.append(
+                f"report/artifact_id: 报告内容与产物记录不一致——记录的 source_commit "
+                f"{record.get('source_commit')!r} 与报告里的 repository.commit "
+                f"{declared_commit!r} 不符；记录的元数据不可信时，版本比对就是空转"
+            )
+        if not [f for f in doc["findings"] if f.get("type") == "MISSING"]:
+            errs.append(
+                "报告里没有 MISSING 发现——没有可修复的目标时「修复」无意义"
+                "（REPAIR_6001）"
+            )
     return errs
 
 
-def missing_findings(record: dict):
-    """取回报告内容并筛出 MISSING 发现；内容不可解析时返回 None（不据此拒绝）。"""
+def report_body(record: dict):
+    """取回报告内容并**按契约校验**。返回 (文档, 问题列表)。
+
+    内容解析不了、或不符合 error-report 契约，都是「输入不可用」，必须拒绝：把
+    「解析失败」当成「没问题」，等于让一份字节错误的报告驱动一次补丁生成。
+    """
     raw = record.get("_blob")
     if not raw:
-        return None
+        return None, ["报告内容读取不到（产物记录没有可下载的内容）"]
     try:
         doc = json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        return None
-    if not isinstance(doc, dict) or not isinstance(doc.get("findings"), list):
-        return None
-    return [f for f in doc["findings"]
-            if isinstance(f, dict) and f.get("type") == "MISSING"]
+    except (ValueError, UnicodeDecodeError) as exc:
+        return None, [f"报告内容不是合法 JSON：{exc}"]
+    problems = schema_errors("error-report", doc)
+    return doc, [f"报告内容不符合 error-report 契约：{p}" for p in problems]
 
 
 # ------------------------------------------------------------------ 产物登记
@@ -438,7 +455,15 @@ def output_for_draft(job: dict) -> dict:
         )
     build = payload["build"]
     subdir = (build.get("project_subdir") or ".").strip("/")
-    workdir = "/workspace" if subdir in ("", ".") else f"/workspace/{subdir}"
+    parts = [seg for seg in subdir.split("/") if seg not in ("", ".")]
+    if subdir.startswith("/") or ".." in parts:
+        raise JobAbort(
+            "EXEC_4002", "EXEC",
+            "项目根越界：project_subdir 必须是仓库内的相对路径，不接受绝对路径或 `..`。",
+            f"project_subdir={build.get('project_subdir')!r}；"
+            f"它会被拼成容器内的项目根，越界后构建与验证会作用到别的目录上。",
+        )
+    workdir = "/workspace" + ("/" + "/".join(parts) if parts else "")
 
     raw = FIXTURE_DOCKERFILE.read_bytes() if FIXTURE_DOCKERFILE.exists() else b""
     dockerfile_id = register_artifact(
@@ -459,7 +484,9 @@ def output_for_draft(job: dict) -> dict:
         "project_root": workdir,
         "working_directory": workdir,
         "build_command": build["command"],
-        "runtime_capabilities": [],
+        # 能力需求来自调用方：它知道后续要在这个环境里做什么（检测要读文件访问记录）。
+        # 环境生成服务只负责把它固定下来，不替调用方猜。
+        "runtime_capabilities": list(payload.get("runtime_capabilities") or []),
     }
 
     job["output"] = {
@@ -490,7 +517,11 @@ def output_for_repair(job: dict) -> dict:
     payload = job["input"]
     # 受理阶段只在请求声明了 report.commit 时比对；没声明时，要到「取回报告」这一步
     # 才知道报告属于哪个版本——这正是 REPAIR_6001 的意义：不拿失效的报告去生成补丁。
-    report_commit = ARTIFACTS.get(payload["report"]["artifact_id"], {}).get("source_commit")
+    record = ARTIFACTS.get(payload["report"]["artifact_id"], {})
+    doc, _ = report_body(record)
+    # 比对的是**报告正文声明的**版本：产物记录的 source_commit 只是元数据，元数据过期
+    # 或记错时版本检查就是空转，补丁照样按错误的版本生成出来。
+    report_commit = (doc or {}).get("repository", {}).get("commit")
     if report_commit and report_commit != payload["repository"]["commit"]:
         raise JobAbort(
             "REPAIR_6001", "REPAIR",
