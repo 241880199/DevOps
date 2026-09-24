@@ -94,9 +94,14 @@ docs/
     01-公共数据结构.md                 任务 / 产物引用 / 仓库 / 环境四类共用结构
     02-任务类型.md                     四类任务、端点与共用约束
     03-系统错误与状态.md               状态机、错误码分段与「发现问题不等于执行失败」的分界
-  interfaces/                         接口契约，一条接口一份，逐条确认后冻结
-    环境交接.md
-    依赖修复.md
+  interfaces/                         接口契约，一条接口一份，按操作命名，逐条确认后冻结
+    生成构建环境.md                    POST /v1/dockerfile-jobs
+    全量依赖检测.md                    POST /v1/full-check-jobs
+    增量依赖检测.md                    POST /v1/incremental-check-jobs
+    修复缺失依赖.md                    POST /v1/repair-jobs
+    查询任务.md                        GET /v1/jobs/{job_id}
+    下载产物.md                        GET /v1/artifacts/{artifact_id}
+    查询环境定义.md                    GET /v1/environments/{environment_id}
   接口说明.md                          ★ 面向下游消费方的对接文档
   变更说明-2.0迁移.md                  1.0 → 2.0 的字段对照、行为收紧与对接方待办
   ADR/                                架构决策记录 001–011
