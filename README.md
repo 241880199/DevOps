@@ -10,15 +10,15 @@
 
 | 操作 | job_type | 端点 | 状态 |
 | --- | --- | --- | --- |
-| 生成构建环境 | `DRAFT` | `POST /v1/dockerfile-jobs` | 已迁移 2.0，待共同分支冻结 |
-| 全量依赖检测 | `FULL_CHECK` | `POST /v1/full-check-jobs` | 已迁移 2.0，待共同分支冻结 |
-| 增量依赖检测 | `INCREMENTAL_CHECK` | `POST /v1/incremental-check-jobs` | 已迁移 2.0，待共同分支冻结 |
-| 依赖修复 | `REPAIR` | `POST /v1/repair-jobs` | 已迁移 2.0，待共同分支冻结 |
+| 生成构建环境 | `DRAFT` | `POST /v1/dockerfile-jobs` | 已迁移 2.0 |
+| 全量依赖检测 | `FULL_CHECK` | `POST /v1/full-check-jobs` | 已迁移 2.0 |
+| 增量依赖检测 | `INCREMENTAL_CHECK` | `POST /v1/incremental-check-jobs` | 已迁移 2.0 |
+| 依赖修复 | `REPAIR` | `POST /v1/repair-jobs` | 已迁移 2.0 |
 
-> 双方共同契约的权威来源是
-> [`241880199/DevOps` 的 `contract-phase` 分支](https://github.com/241880199/DevOps/tree/contract-phase)。
-> 本分支的四类任务 Schema 是双方按共享结构整理的可执行提案（依赖检测服务见 ADR-010，环境生成与依赖修复服务见 ADR-011），
-> 逐接口确认写入 `contract-phase/interfaces/` 之后才称为冻结。
+> 共同契约的权威来源是**本分支**。契约阶段的讨论分支 `contract-phase` 已并入本分支——
+> 公共结构的语义边界在 `docs/contracts/`，接口契约在 `docs/interfaces/`。
+> 四类任务的 Schema 是双方按共享结构整理的可执行提案（依赖检测服务见 ADR-010，环境生成与依赖修复服务见 ADR-011）；
+> 接口文档由生产侧与消费侧逐条确认之后，才称为冻结。
 
 ## 迁移须知（1.0 → 2.0）
 
@@ -90,6 +90,13 @@ fixtures/
     docker/  Dockerfile.reference  image-ref.txt
 
 docs/
+  contracts/                          公共结构的语义边界（第一阶段公共信息）
+    01-公共数据结构.md                 任务 / 产物引用 / 仓库 / 环境四类共用结构
+    02-任务类型.md                     四类任务、端点与共用约束
+    03-系统错误与状态.md               状态机、错误码分段与「发现问题不等于执行失败」的分界
+  interfaces/                         接口契约，一条接口一份，逐条确认后冻结
+    环境交接.md
+    依赖修复.md
   接口说明.md                          ★ 面向下游消费方的对接文档
   变更说明-2.0迁移.md                  1.0 → 2.0 的字段对照、行为收紧与对接方待办
   ADR/                                架构决策记录 001–011
