@@ -10,20 +10,28 @@
 
 | 操作 | job_type | 端点 | 状态 |
 | --- | --- | --- | --- |
-| 生成构建环境 | `DRAFT` | `POST /v1/dockerfile-jobs` | 已定稿 |
-| 全量依赖检测 | `FULL_CHECK` | `POST /v1/full-check-jobs` | A03 已补齐并确认契约 |
-| 增量依赖检测 | `INCREMENTAL_CHECK` | `POST /v1/incremental-check-jobs` | A03 已补齐并确认契约 |
-| 依赖修复 | `REPAIR` | `POST /v1/repair-jobs` | 已定稿 |
+| 生成构建环境 | `DRAFT` | `POST /v1/dockerfile-jobs` | legacy 1.0，待 B03 迁移并冻结 |
+| 全量依赖检测 | `FULL_CHECK` | `POST /v1/full-check-jobs` | A03 已形成可执行提案，待共同分支冻结 |
+| 增量依赖检测 | `INCREMENTAL_CHECK` | `POST /v1/incremental-check-jobs` | A03 已形成可执行提案，待共同分支冻结 |
+| 依赖修复 | `REPAIR` | `POST /v1/repair-jobs` | legacy 1.0，待 B03 迁移并冻结 |
+
+> 双方共同契约的权威来源已迁移到
+> [`241880199/DevOps` 的 `contract-phase` 分支](https://github.com/241880199/DevOps/tree/contract-phase)。
+> 本分支中的 FULL_CHECK / INCREMENTAL_CHECK Schema 是 A03 按共享约定整理的第二阶段提案；
+> DRAFT / REPAIR 的旧专有字段仍待 B03 在 `contract-phase/interfaces/` 中同步，不能据本分支单方面宣称冻结。
 
 ## 目录结构
 
 ```
 contracts/                            接口契约（核心）
-  task.schema.json                    统一任务模型
+  task.schema.json                    当前统一任务模型（A03 已迁移接口使用 2.0）
+  task-legacy-v1.schema.json          仅校验待 B03 迁移的 DRAFT/REPAIR 历史样例
   job-create-request.schema.json      创建请求
   job-input-{draft,full-check,incremental-check,repair}.schema.json
   job-output-{draft,full-check,incremental-check,repair}.schema.json
   dependency-graph.schema.json         检测服务交换的依赖图
+  repository.schema.json               共同仓库与版本身份
+  environment.schema.json              共同环境对象；任务按 environment_id 引用
   error-report.schema.json            依赖问题报告
   artifact.schema.json                产物记录
   error-codes.md                      错误码与状态语义
@@ -46,8 +54,8 @@ fixtures/
 
 docs/
   接口说明.md                          ★ 面向下游消费方的对接文档
-  ADR/                                架构决策记录 001–009
-  AI_USAGE.md                         设计过程与 AI 使用记录（分三轮）
+  ADR/                                架构决策记录 001–010
+  AI_USAGE.md                         设计过程与 AI 使用记录
   配对组接口交换记录.md               与 A03 的三轮接口交换（含待确认项）
   backlog.md                          进展与待办
   A03_TASKS.md                        A03 的 E2 验收清单

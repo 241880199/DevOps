@@ -1,25 +1,34 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "job_id": "job-incr01",
   "job_type": "INCREMENTAL_CHECK",
   "status": "SUCCEEDED",
+  "execution": {
+    "created_at": "2026-09-23T09:05:00.000Z",
+    "started_at": "2026-09-23T09:05:01.000Z",
+    "finished_at": "2026-09-23T09:05:07.000Z",
+    "attempt": 1
+  },
   "input": {
     "base_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
-    "repository": { "url": "https://github.com/241880199/DevOps", "commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3" },
-    "baseline": { "actual_graph_uri": "artifact://a03/job-full01/actual-graph.json", "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d", "configuration_id": "cc-MODE0" },
-    "environment": { "image_ref": "draft-fixture-ok:1.0", "configuration_id": "cc-MODE0" },
-    "build": { "incremental_command": "make", "clean_command": "make clean && make", "project_root": "/work/fixtures/draft" },
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "canonical_url": "https://github.com/241880199/DevOps",
+      "commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
+    },
+    "baseline": {
+      "actual_graph_artifact_id": "actual-graph-001",
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
+      "environment_id": "env-draft-fixture-mode0"
+    },
+    "environment_id": "env-draft-fixture-mode0",
     "limits": { "timeout_seconds": 900 }
   },
   "output": {
     "base_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
     "resolved_commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3",
-    "configuration_id": "cc-MODE0",
-    "actual_graph_artifact_id": "actual-graph-002",
+    "environment_id": "env-draft-fixture-mode0",
     "error_report_artifact_id": "error-report-002",
-    "changes": {
-      "added": [],
-      "resolved": []
-    }
+    "changes": { "added": [], "resolved": [] }
   }
 }

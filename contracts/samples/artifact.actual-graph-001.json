@@ -1,11 +1,12 @@
 {
   "artifact_id": "actual-graph-001",
   "type": "ACTUAL_GRAPH",
-  "uri": "artifact://a03/job-full01/actual-graph.json",
+  "uri": "artifact://buildchecker/job-full01/actual-graph.json",
   "media_type": "application/json",
   "producer_job_id": "job-full01",
-  "sha256": "d8ed35ee07d86ba4643c9e3955751a1bb6574467ba20456904766871c7004d16",
-  "size_bytes": 625,
-  "created_at": "2026-09-23T09:00:00Z",
+  "environment_id": "env-draft-fixture-mode0",
+  "sha256": "f1dbd6891eda2747b14e1c994054c689888def2f8230a33879c328bdb4377942",
+  "size_bytes": 702,
+  "created_at": "2026-09-23T09:00:00.000Z",
   "source_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
 }

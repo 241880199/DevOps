@@ -44,11 +44,23 @@ import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 try:
-    from jsonschema import Draft202012Validator
+    from jsonschema import Draft202012Validator, FormatChecker
 except ImportError:  # pragma: no cover
     sys.exit("缺少依赖 jsonschema。请先安装：\n    python -m pip install jsonschema")
+
+FORMAT_CHECKER = FormatChecker()
+
+
+@FORMAT_CHECKER.checks("date-time", raises=(TypeError, ValueError))
+def is_real_datetime(value) -> bool:
+    """拒绝仅形状像时间、但日历日期不存在或缺少时区的字符串。"""
+    if not isinstance(value, str):
+        return True
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed.tzinfo is not None
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "contracts"
@@ -58,11 +70,16 @@ STATIC_A03_ARTIFACTS = (
     ("artifact.actual-graph-001.json", ROOT / "fixtures" / "a03" / "full-check" / "actual-graph.json"),
     ("artifact.declared-graph-001.json", ROOT / "fixtures" / "a03" / "full-check" / "declared-graph.json"),
     ("artifact.error-report-001.json", ROOT / "fixtures" / "a03" / "full-check" / "error-report.json"),
-    ("artifact.actual-graph-002.json", ROOT / "fixtures" / "a03" / "incremental-check" / "actual-graph.json"),
     ("artifact.error-report-002.json", ROOT / "fixtures" / "a03" / "incremental-check" / "error-report.json"),
 )
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
+JOB_SCHEMA_VERSION = {
+    "DRAFT": "1.0",
+    "FULL_CHECK": "2.0",
+    "INCREMENTAL_CHECK": "2.0",
+    "REPAIR": "1.0",
+}
 TERMINAL = {"SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"}
 
 # 端点 -> job_type
@@ -107,7 +124,7 @@ SCHEMAS = load_schemas()
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def new_job_id() -> str:
@@ -121,7 +138,7 @@ def schema_errors(schema_name: str, instance) -> list[str]:
     schema = SCHEMAS.get(schema_name)
     if schema is None:
         return [f"契约缺失：{schema_name}.schema.json 未找到"]
-    validator = Draft202012Validator(schema)
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
     out = []
     for err in sorted(validator.iter_errors(instance), key=lambda e: list(e.path)):
         loc = "/".join(str(p) for p in err.path) or "<root>"
@@ -158,6 +175,27 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
     """
     errs = []
 
+    repository = payload.get("repository", {})
+    if "canonical_url" in repository:
+        try:
+            parsed = urlsplit(repository.get("url", ""))
+            invalid = (
+                parsed.scheme != "https" or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None
+                or bool(parsed.query) or bool(parsed.fragment)
+                or parsed.port not in (None, 443)
+            )
+            path = parsed.path.rstrip("/")
+            if path.endswith(".git"):
+                path = path[:-4]
+            expected = "" if invalid else f"https://{parsed.hostname.lower()}{path}"
+        except ValueError:
+            expected = ""
+        if not expected or repository["canonical_url"] != expected:
+            errs.append(
+                "repository/canonical_url: 必须等于按 contract-phase 规则规范化后的 URL"
+            )
+
     if job_type == "INCREMENTAL_CHECK":
         baseline = payload["baseline"]
         if baseline["commit"] != payload["base_commit"]:
@@ -165,10 +203,10 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
                 f"baseline/commit: 基线图所依据的提交 {baseline['commit']} "
                 f"与 base_commit {payload['base_commit']} 不一致"
             )
-        if baseline["configuration_id"] != payload["environment"]["configuration_id"]:
+        if baseline["environment_id"] != payload["environment_id"]:
             errs.append(
-                f"baseline/configuration_id: 基线图配置 {baseline['configuration_id']} "
-                f"与本次环境配置 {payload['environment']['configuration_id']} 不一致"
+                f"baseline/environment_id: 基线图环境 {baseline['environment_id']} "
+                f"与本次环境 {payload['environment_id']} 不一致"
             )
 
     if job_type == "REPAIR":
@@ -199,6 +237,7 @@ def register_artifact(job_id, job_type, commit, blob: bytes, media_type: str) ->
         "uri": f"artifact://{job_type.lower()}/{job_id}/{name_for.get(job_type, 'log.txt')}",
         "media_type": media_type,
         "producer_job_id": job_id,
+        "environment_id": None if job_type == "DRAFT" else "env-mdfixer-reference",
         "sha256": hashlib.sha256(blob).hexdigest(),
         "size_bytes": len(blob),
         "created_at": now_iso(),
@@ -214,12 +253,14 @@ def register_json_artifact(job: dict, artifact_type: str,
     blob = (json.dumps(content, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     art_id = artifact_type.lower().replace("_", "-") + "-" + uuid.uuid4().hex[:6]
     commit = job["input"]["repository"]["commit"]
+    service = "buildchecker" if job["job_type"] == "FULL_CHECK" else "echecker"
     ARTIFACTS[art_id] = {
         "artifact_id": art_id,
         "type": artifact_type,
-        "uri": f"artifact://a03/{job['job_id']}/{filename}",
+        "uri": f"artifact://{service}/{job['job_id']}/{filename}",
         "media_type": "application/json",
         "producer_job_id": job["job_id"],
+        "environment_id": job["input"]["environment_id"],
         "sha256": hashlib.sha256(blob).hexdigest(),
         "size_bytes": len(blob),
         "created_at": now_iso(),
@@ -252,8 +293,8 @@ def output_for_draft(job: dict) -> dict:
         "dockerfile_artifact_id": art_id,
         "image_ref": f"draft-{job['job_id']}:1.0",
         "resolved_commit": job["input"]["repository"].get("commit", ""),
-        # 检测方的输入要求 commit + configuration_id 共同确定基线身份，而该标识此前
-        # 没有生产者。这里由环境产出方回报，下游照抄即可，不必自行发明。
+        # B03 旧输出字段；A03 检测任务已按 contract-phase 改用 environment_id，
+        # 不再消费该值。待 B03 在共同接口文档中完成 DRAFT 专有输出迁移。
         "configuration_id": "cc-mock0",
         "iterations": [
             {
@@ -318,7 +359,7 @@ def graph_for(job: dict, graph_kind: str) -> dict:
     return {
         "schema_version": SCHEMA_VERSION,
         "repository": payload["repository"],
-        "configuration_id": payload["environment"]["configuration_id"],
+        "environment_id": payload["environment_id"],
         "graph_kind": graph_kind,
         "generated_at": now_iso(),
         "nodes": [],
@@ -332,7 +373,7 @@ def report_for(job: dict, mode: str, detector: str) -> dict:
     return {
         "schema_version": SCHEMA_VERSION,
         "repository": payload["repository"],
-        "configuration_id": payload["environment"]["configuration_id"],
+        "environment_id": payload["environment_id"],
         "produced_by": {
             "detector": detector,
             "job_id": job["job_id"],
@@ -355,7 +396,7 @@ def output_for_full_check(job: dict) -> None:
     payload = job["input"]
     job["output"] = {
         "resolved_commit": payload["repository"]["commit"],
-        "configuration_id": payload["environment"]["configuration_id"],
+        "environment_id": payload["environment_id"],
         "actual_graph_artifact_id": actual_id,
         "declared_graph_artifact_id": declared_id,
         "error_report_artifact_id": report_id,
@@ -364,8 +405,6 @@ def output_for_full_check(job: dict) -> None:
 
 
 def output_for_incremental_check(job: dict) -> None:
-    actual_id = register_json_artifact(
-        job, "ACTUAL_GRAPH", "actual-graph.json", graph_for(job, "ACTUAL"))
     report_id = register_json_artifact(
         job, "ERROR_REPORT", "error-report.json",
         report_for(job, "INCREMENTAL", "EChecker-MOCK"))
@@ -373,8 +412,7 @@ def output_for_incremental_check(job: dict) -> None:
     job["output"] = {
         "base_commit": payload["base_commit"],
         "resolved_commit": payload["repository"]["commit"],
-        "configuration_id": payload["environment"]["configuration_id"],
-        "actual_graph_artifact_id": actual_id,
+        "environment_id": payload["environment_id"],
         "error_report_artifact_id": report_id,
         "changes": {"added": [], "resolved": []},
     }
@@ -389,6 +427,7 @@ def run_job(job_id: str, should_fail: bool, should_analysis_fail: bool) -> None:
             return
         job["status"] = "RUNNING"
         job["execution"]["started_at"] = now_iso()
+        job["execution"]["attempt"] = 1
 
     time.sleep(1.2)
 
@@ -513,12 +552,17 @@ class Handler(BaseHTTPRequestHandler):
         )
 
         job = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": JOB_SCHEMA_VERSION[job_type],
             "job_id": job_id,
             "trace_id": body.get("trace_id", f"trace-{uuid.uuid4().hex[:8]}"),
             "job_type": job_type,
             "status": "QUEUED",
-            "execution": {"created_at": now_iso(), "attempt": 1},
+            "execution": {
+                "created_at": now_iso(),
+                "started_at": None,
+                "finished_at": None,
+                "attempt": 0,
+            },
             "input": body["input"],
         }
         with LOCK:

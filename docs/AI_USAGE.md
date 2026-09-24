@@ -218,24 +218,9 @@ python scripts/mock_server.py  # REPAIR 报告版本检查与 DRAFT 输出实测
 - **人工补充**：ADR-007 的最终状态应由原决策维护方在收到 A03 回复后更新；A03 的接受证据继续以 `docs/A03_TASKS.md` 和 `docs/配对组接口交换记录.md` 为准。
 - **验证**：确认 ADR-001 至 ADR-007 没有内容变更；新增文件编号从 ADR-008 开始，未覆盖已有记录。
 
-## 验证方式（第三轮）
 
-```bash
-python scripts/validate.py  # 151 项契约检查，退出码 0
-```
 
-已完成 JSON/Python 语法检查和 151/151 项契约校验。
-
-### 15. A03 样例引用占位提交和不存在的检测产物
-
-- **来源**：FULL_CHECK / INCREMENTAL_CHECK 样例使用由短 SHA 补写出的 40 位字符串，并引用 `actual-graph-001` 等没有对应记录和实物的产物编号。
-- **问题**：占位 SHA 能通过正则但不能被 Git 解析；悬空 artifact ID 也无法通过双方选定的下载接口交接。两者都会让结构合法的样例给出错误的可追溯性印象。
-- **AI 建议**：选择仓库中真实存在且具有祖先关系的两次提交，为每个检测产物补 artifact 记录与磁盘实物，并把提交存在性、祖先关系、摘要和大小纳入自动校验。
-- **处理**：采纳。A03 使用 `d47a1523beec3311033eabf2e74c2a6ac299720d` 作为基线、`31cd2ad96ad5660db491b41aa2a396e7f1e092a3` 作为当前提交；新增 `fixtures/a03/` 和五份 artifact 记录。因没有真实运行检测器，报告标记为 `MANUAL`，增量变化集保持为空，不伪造工具发现。
-- **人工补充**：A03 选择 `GET /v1/artifacts/{artifact_id}` 作为读取方式；E2 使用同机本地镜像，不要求 B03 额外交付可执行文件或中间目标文件。
-- **验证**：`scripts/validate.py` 当前 151/151 项通过，检查 A03 产物契约、摘要、大小、提交存在性和基线祖先关系；`scripts/mock_server.py` 启动时登记五份固定产物供下载。
-
-### 16. 检测类 mock 成功输出违反自身 Schema，且缺少分析失败样例
+### 15. 检测类 mock 成功输出违反自身 Schema，且缺少分析失败样例
 
 - **来源**：`scripts/mock_server.py` 对 `FULL_CHECK` / `INCREMENTAL_CHECK` 使用通用
   `output_for_other`，只返回 `note`，随后却把任务标为 `SUCCEEDED`；该对象不符合两类
@@ -251,3 +236,29 @@ python scripts/validate.py  # 151 项契约检查，退出码 0
 - **人工补充**：修改仅覆盖 A03 检测任务；DRAFT / REPAIR 的输出逻辑和 B03 样例未改动。
 - **验证**：`scripts/validate.py` 校验新失败样例及错误语义；HTTP 实测两类成功输出均通过
   专用 Schema、所有输出 artifact 均可下载，失败注入不携带 `output`。
+
+### 16. 本地 A03 契约与双方公共结构发生破坏性冲突
+
+- **来源**：共同仓库 `241880199/DevOps` 的 `contract-phase` 分支提交
+  `431a7438a2487ef505b528e7bd781b2c2563862b`。
+- **问题**：共同结构用 `environment_id` 取代 `configuration_id`，Job 不再内嵌环境定义，
+  Repository 要求 `canonical_url` 和完整 SHA；同时产出方矩阵不允许 EChecker 产出
+  `ACTUAL_GRAPH`。本地旧 Schema 虽能通过自身测试，却不符合双方共同口径。
+- **AI 建议**：保留旧 ADR 作为历史，新增同步 ADR；只修改 A03 专有接口和公共结构，
+  不替 B03 决定 DRAFT / REPAIR 的第二阶段字段；将可评审提案单独整理，提交到共同分支后
+  再称为冻结契约。
+- **处理**：采纳。新增 ADR-010 与 `docs/A03_CONTRACT_PHASE_PROPOSAL.md`；A03 输入改为
+  Repository + `environment_id`，增量基线改用 Artifact ID，EChecker 输出移除实际图；
+  Job 契约版本递增为 `2.0`。
+- **人工补充**：个人协作记录按共同分支规则写入 `contract-phase/records/`，本实现分支只
+  保留迁移说明和 Git 历史。DRAFT / REPAIR 旧专有字段明确标为待 B03 迁移。
+- **验证**：自动校验新增共同契约断言，并实测 FULL_CHECK、INCREMENTAL_CHECK 和
+  `ANALYSIS_5001` 路径。
+
+## 验证方式（第三轮）
+
+```bash
+python scripts/validate.py  # 151 项契约检查，退出码 0
+```
+
+已完成 JSON/Python 语法检查和 151/151 项契约校验。

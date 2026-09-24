@@ -4,22 +4,27 @@
   "title": "DependencyGraph",
   "description": "检测服务交换的依赖图。图必须绑定源码提交和构建配置，边记录目标与依赖之间的声明或实际读取关系。",
   "type": "object",
-  "required": ["schema_version", "repository", "configuration_id", "graph_kind", "nodes", "edges"],
+  "required": ["schema_version", "repository", "environment_id", "graph_kind", "nodes", "edges"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
     "repository": {
       "type": "object",
-      "required": ["url", "commit"],
+      "required": ["url", "canonical_url", "commit"],
       "additionalProperties": false,
       "properties": {
-        "url": { "type": "string", "minLength": 1 },
-        "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" }
+        "url": { "type": "string", "pattern": "^https://" },
+        "canonical_url": { "type": "string", "pattern": "^https://[A-Za-z0-9.-]+/[^?#]+$" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
       }
     },
-    "configuration_id": { "type": "string", "minLength": 1 },
+    "environment_id": { "type": "string", "pattern": "^env-[A-Za-z0-9_-]+$" },
     "graph_kind": { "type": "string", "enum": ["ACTUAL", "DECLARED"] },
-    "generated_at": { "type": "string", "format": "date-time" },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "\\.[0-9]{3}Z$"
+    },
     "nodes": {
       "type": "array",
       "items": {

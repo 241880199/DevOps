@@ -16,6 +16,7 @@
   10  修复的失败边界：rejected[] 与 job.error 各司其职
   11  修复的固定输入与磁盘上的真实文件对得上
   12  A03 检测输出、可读取产物、真实提交及基线祖先关系一致
+  13  A03 与 contract-phase 公共结构保持一致
 
 用法（在仓库根目录执行）：
     python scripts/validate.py
@@ -31,6 +32,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -42,17 +44,27 @@ A03_ARTIFACTS = (
     ("artifact.actual-graph-001.json", A03_FIXTURES / "full-check" / "actual-graph.json", "dependency-graph"),
     ("artifact.declared-graph-001.json", A03_FIXTURES / "full-check" / "declared-graph.json", "dependency-graph"),
     ("artifact.error-report-001.json", A03_FIXTURES / "full-check" / "error-report.json", "error-report"),
-    ("artifact.actual-graph-002.json", A03_FIXTURES / "incremental-check" / "actual-graph.json", "dependency-graph"),
     ("artifact.error-report-002.json", A03_FIXTURES / "incremental-check" / "error-report.json", "error-report"),
 )
 
 try:
-    from jsonschema import Draft202012Validator
+    from jsonschema import Draft202012Validator, FormatChecker
 except ImportError:  # pragma: no cover
     sys.exit(
         "缺少依赖 jsonschema。请先安装：\n"
         "    python -m pip install jsonschema"
     )
+
+FORMAT_CHECKER = FormatChecker()
+
+
+@FORMAT_CHECKER.checks("date-time", raises=(TypeError, ValueError))
+def is_real_datetime(value) -> bool:
+    """拒绝仅形状像时间、但日历日期不存在或缺少时区的字符串。"""
+    if not isinstance(value, str):
+        return True
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed.tzinfo is not None
 
 # job_type -> 专有输入 schema。与 mock_server.py 保持一致；
 # 检查 05 会确认四类任务都有对应的输入契约，防止新增类型时漏配。
@@ -119,7 +131,7 @@ class Report:
 def errors_of(schema: dict, instance) -> list[str]:
     if not schema:
         return ["契约缺失：没有可用的 schema"]
-    validator = Draft202012Validator(schema)
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
     out = []
     for err in sorted(validator.iter_errors(instance), key=lambda e: list(e.path)):
         loc = "/".join(str(p) for p in err.path) or "<root>"
@@ -164,13 +176,24 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
         f"缺少：{sorted(expected - seen_types)}",
     )
 
-    # 响应样例：按 job_type 校验专有输出
+    # 响应样例：A03 已迁移任务校验统一 2.0 模型；B03 样例保留 legacy 1.0，
+    # 仅校验其仍由 B03 维护的专有输出，不能通过改版本号冒充已完成共同结构迁移。
+    a03_v2 = {
+        "job.full-check.succeeded.json",
+        "job.incremental-check.succeeded.json",
+        "job.failed.analysis5001.json",
+    }
     for name in ("job.succeeded.json", "job.full-check.succeeded.json",
                  "job.incremental-check.succeeded.json",
                  "job.repair.succeeded.json", "job.repair.no_fix.json"):
         job = sample(name)
-        errs = errors_of(schemas["task"], job)
-        rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
+        if name in a03_v2:
+            errs = errors_of(schemas["task"], job)
+            rep.check(f"{name} 符合统一任务模型 2.0", not errs, "\n".join(errs))
+        else:
+            errs = errors_of(schemas["task-legacy-v1"], job)
+            rep.check(f"{name} 符合 B03 legacy 1.0 任务模型",
+                      not errs, "\n".join(errs))
         out_schema = OUTPUT_SCHEMA.get(job.get("job_type"))
         if out_schema:
             errs = errors_of(schemas[out_schema], job.get("output", {}))
@@ -179,8 +202,14 @@ def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
     for name in ("job.running.json", "job.failed.env3002.json",
                  "job.failed.analysis5001.json",
                  "job.timed_out.exec4002.json", "job.failed.repair6001.json"):
-        errs = errors_of(schemas["task"], sample(name))
-        rep.check(f"{name} 符合统一任务模型", not errs, "\n".join(errs))
+        job = sample(name)
+        if name in a03_v2:
+            errs = errors_of(schemas["task"], job)
+            rep.check(f"{name} 符合统一任务模型 2.0", not errs, "\n".join(errs))
+        else:
+            errs = errors_of(schemas["task-legacy-v1"], job)
+            rep.check(f"{name} 符合 B03 legacy 1.0 任务模型",
+                      not errs, "\n".join(errs))
 
     artifact_names = ["artifact.json", "artifact.patch.json"] + [item[0] for item in A03_ARTIFACTS]
     for name in artifact_names:
@@ -243,18 +272,18 @@ def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
           ("删除 repository", lambda i: i.pop("repository"))]),
 
         ("create-full-check-job.request.json", "FULL_CHECK",
-         [("删除 environment.configuration_id（基线身份不全）",
-           lambda i: i["environment"].pop("configuration_id")),
-          ("删除 build.clean_command", lambda i: i["build"].pop("clean_command")),
-          ("删除 build.project_root", lambda i: i["build"].pop("project_root")),
+         [("删除 environment_id", lambda i: i.pop("environment_id")),
+          ("删除 repository.canonical_url", lambda i: i["repository"].pop("canonical_url")),
           ("删除 repository.commit", lambda i: i["repository"].pop("commit"))]),
 
         ("create-incremental-check-job.request.json", "INCREMENTAL_CHECK",
          [("删除 baseline（无法判定可比性）", lambda i: i.pop("baseline")),
-          ("删除 baseline.actual_graph_uri", lambda i: i["baseline"].pop("actual_graph_uri")),
+          ("删除 baseline.actual_graph_artifact_id",
+           lambda i: i["baseline"].pop("actual_graph_artifact_id")),
           ("删除 baseline.commit", lambda i: i["baseline"].pop("commit")),
-          ("删除 baseline.configuration_id",
-           lambda i: i["baseline"].pop("configuration_id")),
+          ("删除 baseline.environment_id",
+           lambda i: i["baseline"].pop("environment_id")),
+          ("删除 environment_id", lambda i: i.pop("environment_id")),
           ("删除 base_commit", lambda i: i.pop("base_commit"))]),
     ]
 
@@ -271,32 +300,38 @@ def check_03_missing_required_rejected(schemas: dict, rep: Report) -> None:
 def check_04_error_semantics(schemas: dict, rep: Report) -> None:
     print("\n检查 04：系统错误与正常结果不得混淆")
 
-    job = copy.deepcopy(sample("job.succeeded.json"))
+    job = copy.deepcopy(sample("job.full-check.succeeded.json"))
     job.pop("output")
     rep.check("SUCCEEDED 缺少 output 被拒绝",
               bool(errors_of(schemas["task"], job)),
               "未被拒绝：成功任务必须交付结果")
 
-    job = copy.deepcopy(sample("job.failed.env3002.json"))
+    job = copy.deepcopy(sample("job.failed.analysis5001.json"))
     job.pop("error")
     rep.check("FAILED 缺少 error 被拒绝",
               bool(errors_of(schemas["task"], job)),
               "未被拒绝：失败任务必须说明原因")
 
-    job = copy.deepcopy(sample("job.failed.env3002.json"))
+    job = copy.deepcopy(sample("job.failed.analysis5001.json"))
     job["error"]["code"] = "NOT_A_CODE"
-    rep.check("非法错误码格式被拒绝",
+    rep.check("未在共同契约定义的错误码被拒绝",
               bool(errors_of(schemas["task"], job)),
-              "未被拒绝：错误码须形如 ENV_3002")
+              "未被拒绝：error.code 必须先在 contract-phase 中共同定义")
 
     # 关键语义：检出问题 != 执行失败。
     # 一次成功的检测任务，其 output 中允许承载发现项，任务终态仍是 SUCCEEDED。
     # 用检测类任务构造该场景——DRAFT 与 REPAIR 的专有输出契约中本就没有发现项。
     findings_job = {
-        "schema_version": "1.0",
+        "schema_version": "2.0",
         "job_id": "job-full01",
         "job_type": "FULL_CHECK",
         "status": "SUCCEEDED",
+        "execution": {
+            "created_at": "2026-09-23T09:00:00.000Z",
+            "started_at": "2026-09-23T09:00:01.000Z",
+            "finished_at": "2026-09-23T09:00:08.000Z",
+            "attempt": 1,
+        },
         "input": sample("create-full-check-job.request.json")["input"],
         "output": {
             "report_artifact_id": "md-report-001",
@@ -309,16 +344,29 @@ def check_04_error_semantics(schemas: dict, rep: Report) -> None:
               not errors_of(schemas["task"], findings_job),
               "被误拒：发现项不应使任务变为失败")
 
-    job = copy.deepcopy(sample("job.succeeded.json"))
+    job = copy.deepcopy(sample("job.full-check.succeeded.json"))
     job["error"] = {"code": "ENV_3002", "message": "不应出现"}
     rep.check("SUCCEEDED 同时携带 error 应被拒绝",
               bool(errors_of(schemas["task"], job)),
               "未被拒绝：成功与失败语义必须互斥")
 
+    for status in ("FAILED", "TIMED_OUT", "CANCELLED"):
+        job = copy.deepcopy(sample("job.failed.analysis5001.json"))
+        job["status"] = status
+        job["output"] = copy.deepcopy(sample("job.full-check.succeeded.json")["output"])
+        rep.check(f"{status} 同时携带 output 应被拒绝",
+                  bool(errors_of(schemas["task"], job)),
+                  "未被拒绝：失败原因与成功产出必须互斥")
+
     # output 与 error 都是终态的产物
     for status in ("QUEUED", "RUNNING"):
-        job = copy.deepcopy(sample("job.running.json"))
+        job = copy.deepcopy(sample("job.full-check.succeeded.json"))
+        job.pop("output")
         job["status"] = status
+        job["execution"]["finished_at"] = None
+        if status == "QUEUED":
+            job["execution"]["started_at"] = None
+            job["execution"]["attempt"] = 0
 
         with_error = copy.deepcopy(job)
         with_error["error"] = {"code": "ENV_3002", "message": "未结束不应有 error"}
@@ -327,7 +375,7 @@ def check_04_error_semantics(schemas: dict, rep: Report) -> None:
                   "未被拒绝：error 只应出现在终态")
 
         with_output = copy.deepcopy(job)
-        with_output["output"] = copy.deepcopy(sample("job.succeeded.json")["output"])
+        with_output["output"] = copy.deepcopy(sample("job.full-check.succeeded.json")["output"])
         rep.check(f"{status} 携带 output 应被拒绝",
                   bool(errors_of(schemas["task"], with_output)),
                   "未被拒绝：output 只应出现在终态")
@@ -518,8 +566,9 @@ def check_10_repair_failure_boundary(schemas: dict, rep: Report) -> None:
         rep.check(f"{code} 已在 error-codes.md 中定义", code in doc, "文档中查无此码")
 
     job = sample("job.failed.repair6001.json")
-    errs = errors_of(schemas["task"], job)
-    rep.check("job.failed.repair6001.json 符合统一任务模型", not errs, "\n".join(errs))
+    errs = errors_of(schemas["task-legacy-v1"], job)
+    rep.check("job.failed.repair6001.json 符合 B03 legacy 1.0 任务模型",
+              not errs, "\n".join(errs))
     rep.check("修复输入不可用时任务为 FAILED 且 error.stage 为 REPAIR",
               job.get("status") == "FAILED"
               and (job.get("error") or {}).get("stage") == "REPAIR",
@@ -671,9 +720,9 @@ def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
     rep.check("增量输出的 base_commit 与输入一致",
               incr["output"]["base_commit"] == incr["input"]["base_commit"],
               "输出不能把基线归属到另一提交")
-    rep.check("增量输出的 configuration_id 与输入环境一致",
-              incr["output"]["configuration_id"] == incr["input"]["environment"]["configuration_id"],
-              "配置不同则结果不可比较")
+    rep.check("增量输出的 environment_id 与输入一致",
+              incr["output"]["environment_id"] == incr["input"]["environment_id"],
+              "环境不同则结果不可比较")
 
     rep.check("全量输出的 resolved_commit 与输入一致",
               full["output"]["resolved_commit"] == full["input"]["repository"]["commit"],
@@ -707,18 +756,18 @@ def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
         full["output"]["declared_graph_artifact_id"],
         full["output"]["error_report_artifact_id"],
     }
-    incr_ids = {
-        incr["output"]["actual_graph_artifact_id"],
-        incr["output"]["error_report_artifact_id"],
-    }
+    incr_ids = {incr["output"]["error_report_artifact_id"]}
     rep.check("FULL_CHECK 输出的三个 artifact ID 都有可读取记录",
               full_ids <= records.keys(), f"缺少 {sorted(full_ids - records.keys())}")
-    rep.check("INCREMENTAL_CHECK 输出的两个 artifact ID 都有可读取记录",
+    rep.check("INCREMENTAL_CHECK 输出的错误报告 artifact ID 有可读取记录",
               incr_ids <= records.keys(), f"缺少 {sorted(incr_ids - records.keys())}")
-    rep.check("增量输入复用 FULL_CHECK 的实际图 URI",
-              incr["input"]["baseline"]["actual_graph_uri"] ==
-              records[full["output"]["actual_graph_artifact_id"]]["uri"],
-              "baseline.actual_graph_uri 必须指向前一次全量检测的实际图")
+    rep.check("增量输入引用 FULL_CHECK 的实际图 Artifact ID",
+              incr["input"]["baseline"]["actual_graph_artifact_id"] ==
+              full["output"]["actual_graph_artifact_id"],
+              "baseline.actual_graph_artifact_id 必须引用前一次全量检测的实际图")
+    rep.check("EChecker 不产出 ACTUAL_GRAPH",
+              "actual_graph_artifact_id" not in incr["output"],
+              "contract-phase 的产出方矩阵只允许 BuildChecker 产出 ACTUAL_GRAPH")
 
     base_commit = full["output"]["resolved_commit"]
     current_commit = incr["output"]["resolved_commit"]
@@ -738,6 +787,122 @@ def check_12_a03_detection_outputs(schemas: dict, rep: Report) -> None:
     rep.check("A03 增量基线是当前提交的祖先",
               ancestry.returncode == 0,
               f"{base_commit} 不是 {current_commit} 的祖先")
+
+
+def check_13_contract_phase_alignment(schemas: dict, rep: Report) -> None:
+    """锁定 contract-phase@431a743 已共同确定的公共约束。"""
+    print("\n检查 13：contract-phase 公共结构对齐")
+
+    rep.check("公共 Schema 与隔离的 B03 legacy Schema 已加载",
+              {"repository", "environment", "task-legacy-v1"} <= schemas.keys(),
+              "缺少 repository、environment 或 task-legacy-v1 Schema")
+
+    task = schemas["task"]
+    execution = task["properties"]["execution"]
+    rep.check("Job 始终要求完整 execution 元数据",
+              "execution" in task["required"] and
+              set(execution["required"]) ==
+              {"created_at", "started_at", "finished_at", "attempt"} and
+              execution["properties"]["attempt"].get("minimum") == 0,
+              "execution 必须始终存在，QUEUED 的 attempt 从 0 开始")
+
+    valid_job = sample("job.full-check.succeeded.json")
+    invalid_times = (
+        ("不存在的日期", "2026-02-30T09:00:00.000Z"),
+        ("非 UTC 偏移", "2026-09-23T17:00:00.000+08:00"),
+        ("缺少毫秒", "2026-09-23T09:00:00Z"),
+    )
+    for label, value in invalid_times:
+        bad_job = copy.deepcopy(valid_job)
+        bad_job["execution"]["created_at"] = value
+        rep.check(f"Job 时间拒绝{label}",
+                  bool(errors_of(task, bad_job)),
+                  f"未被拒绝：{value}")
+
+    shared_codes = {"ENV_3002", "EXEC_4002", "ANALYSIS_5001",
+                    "REPAIR_6001", "REPAIR_6002"}
+    actual_codes = set(task["$defs"]["error"]["properties"]["code"].get("enum", []))
+    rep.check("error.code 只接受共同定义的错误码", actual_codes == shared_codes,
+              f"实际：{sorted(actual_codes)}")
+
+    required_artifact = {
+        "artifact_id", "type", "uri", "media_type", "producer_job_id",
+        "environment_id", "sha256", "size_bytes", "created_at", "source_commit",
+    }
+    rep.check("Artifact 记录包含共同要求的身份、环境、校验与追溯字段",
+              required_artifact <= set(schemas["artifact"]["required"]),
+              f"缺少：{sorted(required_artifact - set(schemas['artifact']['required']))}")
+
+    artifact_without_size = copy.deepcopy(sample("artifact.json"))
+    artifact_without_size["size_bytes"] = None
+    rep.check("Artifact 的 size_bytes 不适用时允许为 null",
+              not errors_of(schemas["artifact"], artifact_without_size),
+              "共同契约要求字段保留，并在不适用时取 null")
+    artifact_with_bad_size = copy.deepcopy(sample("artifact.json"))
+    artifact_with_bad_size["size_bytes"] = -1
+    rep.check("Artifact 的 size_bytes 为整数时不得为负数",
+              bool(errors_of(schemas["artifact"], artifact_with_bad_size)),
+              "负数文件大小必须被拒绝")
+
+    timestamp_instances = (
+        ("Artifact.created_at", schemas["artifact"], sample("artifact.actual-graph-001.json"),
+         "created_at"),
+        ("DependencyGraph.generated_at", schemas["dependency-graph"],
+         load_json(A03_FIXTURES / "full-check" / "actual-graph.json"), "generated_at"),
+        ("ErrorReport.generated_at", schemas["error-report"],
+         load_json(A03_FIXTURES / "full-check" / "error-report.json"), "generated_at"),
+    )
+    for label, schema, instance, field in timestamp_instances:
+        bad_instance = copy.deepcopy(instance)
+        bad_instance[field] = "2026-09-23T09:00:00Z"
+        rep.check(f"{label} 要求 UTC 毫秒精度",
+                  bool(errors_of(schema, bad_instance)),
+                  "缺少三位毫秒的时间不应通过")
+
+    full_req = sample("create-full-check-job.request.json")
+    incr_req = sample("create-incremental-check-job.request.json")
+    for name, req in (("FULL_CHECK", full_req), ("INCREMENTAL_CHECK", incr_req)):
+        payload = req["input"]
+        rep.check(f"{name} Repository 符合公共 Schema",
+                  not errors_of(schemas["repository"], payload["repository"]),
+                  "Repository 必须含原始 URL、canonical_url 和完整 40 位 SHA")
+        rep.check(f"{name} 只按 environment_id 引用环境",
+                  "environment_id" in payload and "environment" not in payload
+                  and "build" not in payload and "configuration_id" not in json.dumps(payload),
+                  "检测任务不得内嵌环境定义或继续使用 configuration_id")
+
+    rep.check("增量基线以 Artifact ID 而非 URI 交接",
+              "actual_graph_artifact_id" in incr_req["input"]["baseline"]
+              and "actual_graph_uri" not in incr_req["input"]["baseline"],
+              "基线应由全局 Artifact Index 定位")
+
+    incr_out = sample("job.incremental-check.succeeded.json")["output"]
+    rep.check("EChecker 输出不含 ACTUAL_GRAPH",
+              "actual_graph_artifact_id" not in incr_out,
+              "共同产出方矩阵只允许 BuildChecker 产出 ACTUAL_GRAPH")
+
+    a03_names = {
+        "job.full-check.succeeded.json",
+        "job.incremental-check.succeeded.json",
+        "job.failed.analysis5001.json",
+    }
+    b03_legacy_names = {
+        "job.succeeded.json",
+        "job.running.json",
+        "job.failed.env3002.json",
+        "job.timed_out.exec4002.json",
+        "job.repair.succeeded.json",
+        "job.repair.no_fix.json",
+        "job.failed.repair6001.json",
+    }
+    rep.check("A03 检测 Job 样例使用 schema_version=2.0",
+              all(sample(name).get("schema_version") == "2.0"
+                  for name in a03_names),
+              "A03 的破坏性迁移必须使用 2.0")
+    rep.check("B03 未迁移 Job 样例明确保留为 legacy 1.0",
+              all(sample(name).get("schema_version") == "1.0"
+                  for name in b03_legacy_names),
+              "不得只改版本号、却保留旧 Repository/Environment 结构")
 
 # -------------------------------------------------------------------- main
 
@@ -762,6 +927,7 @@ def main() -> int:
     check_10_repair_failure_boundary(schemas, rep)
     check_11_repair_fixture_is_real(schemas, rep)
     check_12_a03_detection_outputs(schemas, rep)
+    check_13_contract_phase_alignment(schemas, rep)
     return rep.summary()
 
 

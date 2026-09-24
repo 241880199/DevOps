@@ -4,13 +4,13 @@
   "title": "Task",
   "description": "统一任务模型。一份 Job 表达四类耗时任务：DRAFT / FULL_CHECK / INCREMENTAL_CHECK / REPAIR。公共字段对四类任务完全一致，input 与 output 的具体结构由 job_type 决定。",
   "type": "object",
-  "required": ["schema_version", "job_id", "job_type", "status"],
+  "required": ["schema_version", "job_id", "job_type", "status", "execution"],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$",
-      "description": "契约版本。当前 1.0。改字段语义时必须递增。"
+      "const": "2.0",
+      "description": "Job 契约版本。contract-phase 公共结构迁移属于破坏性变更，当前为 2.0。"
     },
     "job_id": {
       "type": "string",
@@ -34,13 +34,14 @@
     },
     "execution": {
       "type": "object",
-      "description": "执行元数据，可选。",
+      "description": "任务级执行元数据，始终存在；尚未发生的时间取 null。",
+      "required": ["created_at", "started_at", "finished_at", "attempt"],
       "additionalProperties": false,
       "properties": {
-        "created_at": { "type": "string", "format": "date-time" },
-        "started_at": { "type": "string", "format": "date-time" },
-        "finished_at": { "type": "string", "format": "date-time" },
-        "attempt": { "type": "integer", "minimum": 1 }
+        "created_at": { "type": "string", "format": "date-time", "pattern": "\\.[0-9]{3}Z$" },
+        "started_at": { "type": ["string", "null"], "format": "date-time", "pattern": "\\.[0-9]{3}Z$" },
+        "finished_at": { "type": ["string", "null"], "format": "date-time", "pattern": "\\.[0-9]{3}Z$" },
+        "attempt": { "type": "integer", "minimum": 0 }
       }
     },
     "input": {
@@ -75,7 +76,11 @@
         },
         "required": ["status"]
       },
-      "then": { "required": ["error"] }
+      "then": {
+        "required": ["error"],
+        "not": { "required": ["output"] },
+        "description": "失败终态只交付失败原因，不得同时携带成功产出。"
+      }
     },
     {
       "if": {
@@ -88,6 +93,72 @@
         },
         "description": "output 与 error 都是终态的产物：未结束的任务不得携带二者。"
       }
+    },
+    {
+      "if": { "properties": { "status": { "const": "QUEUED" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "started_at": { "const": null },
+              "finished_at": { "const": null },
+              "attempt": { "const": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "RUNNING" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "started_at": { "type": "string" },
+              "finished_at": { "const": null },
+              "attempt": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["SUCCEEDED", "FAILED", "TIMED_OUT"] } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "started_at": { "type": "string" },
+              "finished_at": { "type": "string" },
+              "attempt": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "CANCELLED" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": { "finished_at": { "type": "string" } },
+            "oneOf": [
+              {
+                "properties": {
+                  "started_at": { "const": null },
+                  "attempt": { "const": 0 }
+                }
+              },
+              {
+                "properties": {
+                  "started_at": { "type": "string" },
+                  "attempt": { "type": "integer", "minimum": 1 }
+                }
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -99,8 +170,8 @@
       "properties": {
         "code": {
           "type": "string",
-          "pattern": "^[A-Z]+_[0-9]{4}$",
-          "description": "错误码，形如 ENV_3002。"
+          "enum": ["ENV_3002", "EXEC_4002", "ANALYSIS_5001", "REPAIR_6001", "REPAIR_6002"],
+          "description": "contract-phase 已共同定义的任务错误码。新增错误码必须先同步共享文档和本约束。"
         },
         "message": {
           "type": "string",
@@ -115,7 +186,11 @@
           "type": "string",
           "description": "补充说明，例如容器内命令与退出码。"
         },
-        "at": { "type": "string", "format": "date-time" }
+        "at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "\\.[0-9]{3}Z$"
+        }
       }
     }
   }

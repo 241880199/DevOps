@@ -4,7 +4,7 @@
   "title": "ErrorReport",
   "description": "依赖问题报告。检测服务产出，修复服务消费；作为 artifact 以 URI 引用交接。一条 finding 表示一处依赖声明问题，必须同时给出位置与证据——只有 (target, dependency) 不足以让人复核。",
   "type": "object",
-  "required": ["schema_version", "repository", "produced_by", "generated_at", "findings"],
+  "required": ["schema_version", "repository", "environment_id", "produced_by", "generated_at", "findings"],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
@@ -13,20 +13,22 @@
     },
     "repository": {
       "type": "object",
-      "required": ["url", "commit"],
+      "required": ["url", "canonical_url", "commit"],
       "additionalProperties": false,
       "properties": {
-        "url": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "pattern": "^https://" },
+        "canonical_url": { "type": "string", "pattern": "^https://[A-Za-z0-9.-]+/[^?#]+$" },
         "commit": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$",
+          "pattern": "^[0-9a-f]{40}$",
           "description": "报告所依据的源码版本。修复服务必须据此校验报告是否属于当前提交。"
         }
       }
     },
-    "configuration_id": {
+    "environment_id": {
       "type": "string",
-      "description": "报告所依据的构建配置标识。同一提交在不同配置下依赖关系不同，缺失该字段则报告不可跨配置复用。"
+      "pattern": "^env-[A-Za-z0-9_-]+$",
+      "description": "报告所属的全局环境身份。"
     },
     "produced_by": {
       "type": "object",
@@ -50,7 +52,11 @@
         }
       }
     },
-    "generated_at": { "type": "string", "format": "date-time" },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "\\.[0-9]{3}Z$"
+    },
     "summary": {
       "type": "object",
       "description": "可选的汇总计数，便于消费方在不解全部 findings 的情况下掌握规模。",
@@ -92,7 +98,7 @@
         },
         "commit": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$",
+          "pattern": "^[0-9a-f]{40}$",
           "description": "该发现成立时所处的完整提交 SHA。"
         },
         "detector": {

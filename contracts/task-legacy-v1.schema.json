@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devops-course.local/schemas/task-legacy-v1.schema.json",
+  "title": "Legacy Task 1.0",
+  "description": "仅用于校验尚待 B03 迁移的 DRAFT / REPAIR 历史样例。新接口不得使用此 Schema。",
+  "type": "object",
+  "required": ["schema_version", "job_id", "job_type", "status", "execution"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "job_id": { "type": "string", "pattern": "^job-[A-Za-z0-9_-]+$" },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "job_type": { "enum": ["DRAFT", "REPAIR"] },
+    "status": {
+      "enum": ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"]
+    },
+    "execution": {
+      "type": "object",
+      "required": ["created_at", "started_at", "finished_at", "attempt"],
+      "additionalProperties": false,
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time", "pattern": "\\.[0-9]{3}Z$" },
+        "started_at": { "type": ["string", "null"], "format": "date-time", "pattern": "\\.[0-9]{3}Z$" },
+        "finished_at": { "type": ["string", "null"], "format": "date-time", "pattern": "\\.[0-9]{3}Z$" },
+        "attempt": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "input": { "type": "object" },
+    "output": { "type": "object" },
+    "error": { "$ref": "#/$defs/error" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "SUCCEEDED" } }, "required": ["status"] },
+      "then": {
+        "required": ["output"],
+        "not": { "required": ["error"] }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "enum": ["FAILED", "TIMED_OUT", "CANCELLED"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["error"],
+        "not": { "required": ["output"] }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "enum": ["QUEUED", "RUNNING"] } },
+        "required": ["status"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [{ "required": ["error"] }, { "required": ["output"] }]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": ["ENV_3002", "EXEC_4002", "REPAIR_6001", "REPAIR_6002"]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "stage": { "enum": ["ENV", "EXEC", "REPAIR"] },
+        "detail": { "type": "string" },
+        "at": { "type": "string", "format": "date-time", "pattern": "\\.[0-9]{3}Z$" }
+      }
+    }
+  }
+}

@@ -10,12 +10,12 @@
 | --- | --- | --- |
 | 统一任务模型 | `contracts/task.schema.json` | 四类 job_type 可表达并有样例支撑 |
 | 创建请求契约 | `contracts/job-create-request.schema.json` | `job_id` 不得由客户端携带，携带被拒绝 |
-| 环境生成输入/输出 | `contracts/job-input-draft.schema.json`、`job-output-draft.schema.json` | 两层判据可表达；`project_subdir` 可指定项目根；输出回报 `configuration_id` |
-| 依赖修复输入/输出 | `contracts/job-input-repair.schema.json`、`job-output-repair.schema.json` | `finding_type` 固定 MISSING；三项验证判据齐全；`report.commit` 使版本校验前移 |
-| 全量检测输入 | `contracts/job-input-full-check.schema.json` | 基线由 commit + configuration_id 共同确定 |
-| 增量检测输入 | `contracts/job-input-incremental-check.schema.json` | `baseline` 三项必填 |
-| 全量检测输出 | `contracts/job-output-full-check.schema.json` | 图与报告均用产物编号交接，结果绑定 commit 与 configuration_id |
-| 增量检测输出 | `contracts/job-output-incremental-check.schema.json` | 表达新增/消除发现并返回下一次可复用的图 |
+| 环境生成 legacy 1.0 输入/输出 | `contracts/job-input-draft.schema.json`、`job-output-draft.schema.json` | 历史方案可验证；`configuration_id` 等旧字段待 B03 迁移，不属于 A03 的 2.0 契约 |
+| 依赖修复 legacy 1.0 输入/输出 | `contracts/job-input-repair.schema.json`、`job-output-repair.schema.json` | 历史方案可验证；专有字段待 B03 在共同分支迁移，不由 A03 单方面冻结 |
+| 全量检测输入 | `contracts/job-input-full-check.schema.json` | 完整仓库身份 + `environment_id` |
+| 增量检测输入 | `contracts/job-input-incremental-check.schema.json` | 基线以 Artifact ID、commit、environment_id 标识 |
+| 全量检测输出 | `contracts/job-output-full-check.schema.json` | BuildChecker 交付两类图和错误报告 |
+| 增量检测输出 | `contracts/job-output-incremental-check.schema.json` | EChecker 交付错误报告与变化集，不产出实际图 |
 | 依赖图契约 | `contracts/dependency-graph.schema.json` | 实际图与声明图使用同一结构并区分 relation |
 | 依赖问题报告 | `contracts/error-report.schema.json` | 每条发现带位置与证据，来源可区分 |
 | 产物记录 | `contracts/artifact.schema.json` | 下游可依 URI 取到内容 |
@@ -35,7 +35,7 @@
 | **报告版本检查** | `scripts/mock_server.py` 的 `cross_checks` | `report.commit` 与 `repository.commit` 不一致时以 `400` 拒绝 |
 | 固定输入样例（DRAFT） | `fixtures/draft/` | `make` 构建、`./hello` 输出 `hello draft` |
 | **固定输入样例（REPAIR）** | `fixtures/mdfixer/` | 真实源码 + 人工报告 + 参考补丁；报告每条发现的 `location` 都指向磁盘上真实的规则行 |
-| 接口样例 | `contracts/samples/` | 当前 23 个文件，覆盖创建/受理、任务状态、七类产物记录与错误报告 |
+| 接口样例 | `contracts/samples/` | 当前 22 个文件，覆盖创建/受理、任务状态、六类产物记录与错误报告 |
 
 ### 设计记录
 
@@ -51,12 +51,12 @@
 | **ADR-007 DRAFT 输出回报 `configuration_id`** | `docs/ADR/`（A03 已接受；原 ADR 状态由维护方更新） |
 | **ADR-008 BuildChecker 输出与依赖图交付** | `docs/ADR/`（A03 已采纳，待 B03 对接确认） |
 | **ADR-009 EChecker 基线身份与变化表达** | `docs/ADR/`（A03 已采纳，待 B03 对接确认） |
+| **ADR-010 对齐 contract-phase 公共契约** | `docs/ADR/`（取代本地 A03 旧字段口径） |
 | **配对组接口交换记录** | `docs/配对组接口交换记录.md` |
 | AI 使用与设计过程记录 | `docs/AI_USAGE.md` |
 
-> 个人贡献与版本的可追溯性由 **git 提交历史**承担（作者、提交 SHA、提交说明），
-> 不再另存一份汇总文件——那样会与 git 记录形成两份会各自演化的事实。
-> 每次改动的说明、验证结果与提交建议见 `logs/` 下的改动日志。
+> 按 `contract-phase` 工作规则，个人协作记录应放在该分支的 `records/`，每人一份；
+> Git 提交历史继续承担作者、SHA 和版本追溯。当前实现分支不重复创建个人汇总文件。
 
 ## 待办
 
@@ -72,11 +72,11 @@
 
 | 项 | 说明 |
 | --- | --- |
-| 检测类任务字段复核 | A03 已接受输入并补齐输出，合并前由 A03/B03 再核对字段命名 |
-| `configuration_id` 语义与粒度 | A03 接受由 DRAFT 回报并原样沿用；B03 需确认「影响依赖关系的配置均改变标识」这一粒度 |
+| 检测类任务接口冻结 | A03 已按共享公共结构形成可执行提案，需提交 `contract-phase/interfaces/` 并由双方确认 |
+| B03 专有接口迁移 | DRAFT / REPAIR 仍保留本分支旧字段；由 B03 对齐 `environment_id` 等共享结构 |
 | `report.commit` 是否被采纳 | A03 接受该可选字段并将在交付给 MDFixer 的请求侧携带 |
 | `REPAIR_6001` 的两种拒绝载体 | A03 已接受受理阶段 `400` 与执行阶段 `FAILED` 两种载体 |
-| 产物 URI 的解析方式 | A03 选择 `GET /v1/artifacts/{artifact_id}`，下载后核对摘要；待 B03 对接确认 |
+| Environment Provider 查询方式 | 共同结构已要求任务引用 environment_id，但完整环境定义的查询端点尚待接口阶段确认 |
 
 ### 数据真实性
 
@@ -113,6 +113,6 @@
 
 破坏变更必须递增 `schema_version`，并同步更新样例与 `validate.py`。
 
-> **E2 阶段的三处改动都是兼容变更**（新增可选字段）：`report.commit`、`project_subdir`、
-> `output.configuration_id`。因此 `schema_version` 保持 `1.0` 不变。若其中任一项后续
-> 改为必填，则必须递增版本并双方同步升级。
+> 历史 E2 的 DRAFT / REPAIR 样例保持 legacy `1.0`；本轮对齐 `contract-phase` 删除/改名了
+> A03 检测字段并收紧公共 Job 结构，属于破坏性变更，因此 FULL_CHECK / INCREMENTAL_CHECK
+> 使用 `schema_version=2.0`。B03 完成迁移前，不把其旧专有结构标成 2.0。

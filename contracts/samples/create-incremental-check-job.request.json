@@ -5,24 +5,15 @@
     "base_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
     "repository": {
       "url": "https://github.com/241880199/DevOps",
+      "canonical_url": "https://github.com/241880199/DevOps",
       "commit": "31cd2ad96ad5660db491b41aa2a396e7f1e092a3"
     },
     "baseline": {
-      "actual_graph_uri": "artifact://detect/job-full01/actual-graph.json",
+      "actual_graph_artifact_id": "actual-graph-001",
       "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
-      "configuration_id": "cc-MODE0"
+      "environment_id": "env-draft-fixture-mode0"
     },
-    "environment": {
-      "image_ref": "draft-fixture-ok:1.0",
-      "configuration_id": "cc-MODE0"
-    },
-    "build": {
-      "incremental_command": "make",
-      "clean_command": "make clean && make",
-      "project_root": "/work/fixtures/draft"
-    },
-    "limits": {
-      "timeout_seconds": 900
-    }
+    "environment_id": "env-draft-fixture-mode0",
+    "limits": { "timeout_seconds": 900 }
   }
 }

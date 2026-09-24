@@ -1,17 +1,26 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "job_id": "job-full01",
   "job_type": "FULL_CHECK",
   "status": "SUCCEEDED",
+  "execution": {
+    "created_at": "2026-09-23T09:00:00.000Z",
+    "started_at": "2026-09-23T09:00:01.000Z",
+    "finished_at": "2026-09-23T09:00:08.000Z",
+    "attempt": 1
+  },
   "input": {
-    "repository": { "url": "https://github.com/241880199/DevOps", "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d" },
-    "environment": { "image_ref": "draft-fixture-ok:1.0", "configuration_id": "cc-MODE0" },
-    "build": { "clean_command": "make clean && make", "project_root": "/work/fixtures/draft" },
+    "repository": {
+      "url": "https://github.com/241880199/DevOps",
+      "canonical_url": "https://github.com/241880199/DevOps",
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
+    },
+    "environment_id": "env-draft-fixture-mode0",
     "limits": { "timeout_seconds": 900 }
   },
   "output": {
     "resolved_commit": "d47a1523beec3311033eabf2e74c2a6ac299720d",
-    "configuration_id": "cc-MODE0",
+    "environment_id": "env-draft-fixture-mode0",
     "actual_graph_artifact_id": "actual-graph-001",
     "declared_graph_artifact_id": "declared-graph-001",
     "error_report_artifact_id": "error-report-001",

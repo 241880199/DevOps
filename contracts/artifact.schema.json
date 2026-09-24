@@ -4,7 +4,7 @@
   "title": "Artifact",
   "description": "产物记录。约定：Job 只内嵌元数据与小结果，Dockerfile、构建日志等大文件一律以 artifact URI 引用传递，接收方按约定解析或经下载接口取用。",
   "type": "object",
-  "required": ["artifact_id", "type", "uri", "media_type", "producer_job_id"],
+  "required": ["artifact_id", "type", "uri", "media_type", "producer_job_id", "environment_id", "sha256", "size_bytes", "created_at", "source_commit"],
   "additionalProperties": false,
   "properties": {
     "artifact_id": {
@@ -43,22 +43,38 @@
       "pattern": "^job-[A-Za-z0-9_-]+$",
       "description": "产出该产物的任务编号，用于追溯。"
     },
+    "environment_id": {
+      "type": ["string", "null"],
+      "pattern": "^env-[A-Za-z0-9_-]+$",
+      "description": "产物所属环境。DRAFT 产物产生时环境尚未建立，值为 null；其余产物使用全局环境 ID。"
+    },
     "sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
       "description": "内容摘要，需要在交接时核验完整性则填。"
     },
     "size_bytes": {
-      "type": "integer",
-      "minimum": 0
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "内容字节数；不适用时为 null。"
     },
     "created_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "pattern": "\\.[0-9]{3}Z$",
+      "description": "Artifact 可被引用的 UTC 时间，RFC 3339 格式、毫秒精度。"
     },
     "source_commit": {
       "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
       "description": "产该产物时仓库所处的 commit SHA。保证产物与源码版本可对应。"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "uri": { "pattern": "^artifact://draft/" } }, "required": ["uri"] },
+      "then": { "properties": { "environment_id": { "const": null } } },
+      "else": { "properties": { "environment_id": { "type": "string" } } }
+    }
+  ]
 }
