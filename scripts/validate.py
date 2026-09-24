@@ -165,6 +165,8 @@ def sample_environments() -> dict[str, dict]:
     return out
 
 
+# ------------------------------------------------------------------ 检查项
+
 def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
     """四类任务的请求与响应样例都必须通过各自契约。"""
     print("\n检查 01：四类任务的请求与响应样例通过")
