@@ -136,6 +136,7 @@ docker run   --rm mdfixer-fixture       # 预期输出 12
 | 项 | 版本 |
 | --- | --- |
 | Python | 3.11（`validate.py` 与 `mock_server.py` 均需 `jsonschema`） |
+| Git | **带完整历史的检出**：`validate.py` 用 `git cat-file` 核对样例提交是否存在，mock 用 `git rev-parse` 解析仓库版本。浅克隆（`--depth 1`）或无 `.git` 的源码包会让校验报多项失败、并让带固定 commit 的环境生成请求被 `400` 拒绝 |
 | Docker | 当前契约不要求；构建样例项目时需要 |
 
 宿主开发机为 Windows + MSYS，**无 `make`、无 `gcc`**，构建动作全部通过 Docker 在 Linux 环境中执行。

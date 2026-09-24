@@ -4,7 +4,7 @@
   "input": {
     "repository": {
       "url": "https://github.com/241880199/DevOps",
-      "commit": "b06e66e"
+      "commit": "d47a1523beec3311033eabf2e74c2a6ac299720d"
     },
     "build": {
       "command": "make",

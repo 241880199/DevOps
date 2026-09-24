@@ -97,6 +97,7 @@ JOB_SCHEMA_VERSION = {
     "REPAIR": SCHEMA_VERSION,
 }
 TERMINAL = {"SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"}
+DETECTION_TYPES = {"FULL_CHECK", "INCREMENTAL_CHECK"}
 
 # 产物存储域按服务命名（见 contracts/artifact.schema.json）
 SERVICE_DOMAIN = {
@@ -415,7 +416,9 @@ def register_artifact(job_id: str, job_type: str, commit: str, blob: bytes,
     problems = schema_errors(
         "artifact", {k: v for k, v in record.items() if not k.startswith("_")})
     if problems:
-        raise JobAbort("EXEC_4002", "EXEC",
+        code, stage = (("ANALYSIS_5001", "ANALYSIS") if job_type in DETECTION_TYPES
+                       else ("EXEC_4002", "EXEC"))
+        raise JobAbort(code, stage,
                        "mock 登记的产物记录不符合 artifact 契约。", "; ".join(problems))
     ARTIFACTS[art_id] = record
     return art_id
@@ -423,25 +426,16 @@ def register_artifact(job_id: str, job_type: str, commit: str, blob: bytes,
 
 def register_json_artifact(job: dict, artifact_type: str,
                            filename: str, content: dict) -> str:
-    """把当前检测 job 的 JSON 产物登记到下载接口。"""
+    """把当前检测 job 的 JSON 产物登记到下载接口。
+
+    走的是同一个 register_artifact：产物记录的构造、存储域映射与契约自检只有一份，
+    检测侧不会因为「另写一份」而漏掉后来的约束。
+    """
     blob = (json.dumps(content, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    art_id = artifact_type.lower().replace("_", "-") + "-" + uuid.uuid4().hex[:6]
-    commit = job["input"]["repository"]["commit"]
-    service = "buildchecker" if job["job_type"] == "FULL_CHECK" else "echecker"
-    ARTIFACTS[art_id] = {
-        "artifact_id": art_id,
-        "type": artifact_type,
-        "uri": f"artifact://{service}/{job['job_id']}/{filename}",
-        "media_type": "application/json",
-        "producer_job_id": job["job_id"],
-        "environment_id": job["input"]["environment_id"],
-        "sha256": hashlib.sha256(blob).hexdigest(),
-        "size_bytes": len(blob),
-        "created_at": now_iso(),
-        "source_commit": commit,
-        "_blob": blob,
-    }
-    return art_id
+    return register_artifact(
+        job["job_id"], job["job_type"], job["input"]["repository"]["commit"],
+        blob, "application/json", artifact_type=artifact_type, filename=filename,
+        environment_id=job["input"]["environment_id"])
 
 
 def load_static_records() -> None:
@@ -478,15 +472,18 @@ def output_for_draft(job: dict) -> dict:
             f"mock 只能解析本仓库（{SELF_REPO_URL}）的提交。",
         )
     build = payload["build"]
-    subdir = (build.get("project_subdir") or ".").strip("/")
-    parts = [seg for seg in subdir.split("/") if seg not in ("", ".")]
-    if subdir.startswith("/") or ".." in parts:
+    raw_subdir = build.get("project_subdir") or "."
+    segments = raw_subdir.rstrip("/").split("/")
+    # 判据看**原始值**：先 strip 再判 startswith("/") 的话，绝对路径会被静默改成相对路径
+    # （"/etc" → "etc"），守卫就成了死代码。空段（"a//b"）同样拒绝，不做静默折叠。
+    if raw_subdir.startswith("/") or ".." in segments or "" in segments:
         raise JobAbort(
             "EXEC_4002", "EXEC",
-            "项目根越界：project_subdir 必须是仓库内的相对路径，不接受绝对路径或 `..`。",
-            f"project_subdir={build.get('project_subdir')!r}；"
-            f"它会被拼成容器内的项目根，越界后构建与验证会作用到别的目录上。",
+            "项目根越界：project_subdir 必须是仓库内的相对路径。",
+            f"project_subdir={build.get('project_subdir')!r}；不接受绝对路径、`..` 或空路径段"
+            f"——它会被拼成容器内的项目根，越界后构建与验证会作用到别的目录上。",
         )
+    parts = [seg for seg in segments if seg != "."]
     workdir = "/workspace" + ("/" + "/".join(parts) if parts else "")
 
     raw = FIXTURE_DOCKERFILE.read_bytes() if FIXTURE_DOCKERFILE.exists() else b""

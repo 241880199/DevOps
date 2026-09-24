@@ -152,14 +152,18 @@ def create_samples() -> list[Path]:
 
 
 def sample_environments() -> dict[str, dict]:
-    """样例中的环境记录，按 environment_id 索引。"""
-    return {
-        record["environment_id"]: record
-        for record in (load_json(p) for p in sorted(SAMPLES.glob("environment.*.json")))
-    }
+    """样例中的环境记录，按 environment_id 索引。
 
+    缺 environment_id 的记录也收进来（用文件名当键）：它会被检查项报成失败，而不是在
+    这里抛 KeyError 把校验器带崩——校验器崩掉时读者看到的是 traceback，既没有失败汇总，
+    后面的检查项也全都不跑。
+    """
+    out = {}
+    for path in sorted(SAMPLES.glob("environment.*.json")):
+        record = load_json(path)
+        out[record.get("environment_id") or f"<缺少 environment_id：{path.name}>"] = record
+    return out
 
-# ------------------------------------------------------------------ 检查项
 
 def check_01_all_types_pass(schemas: dict, rep: Report) -> None:
     """四类任务的请求与响应样例都必须通过各自契约。"""
@@ -940,9 +944,11 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
     envs = sample_environments()
     rep.check("样例中存在环境记录", bool(envs), "未找到 environment.*.json")
 
-    for env in envs.values():
+    for key, env in sorted(envs.items()):
         errs = errors_of(schemas["environment"], env)
-        rep.check(f"环境样例 {env['environment_id']} 符合 environment.schema.json",
+        # 标签用 key 兜底：样例缺 environment_id 时应当报失败，而不是抛 KeyError
+        label = env.get("environment_id") or key
+        rep.check(f"环境样例 {label} 符合 environment.schema.json",
                   not errs, "\n".join(errs))
 
     image_records = {
@@ -962,15 +968,30 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
                   "环境生成服务的产物产出时环境尚不存在：environment_id 必须为 null，"
                   "存储域必须按服务命名")
 
-    for name in ("job.succeeded.json", "job.full-check.succeeded.json",
-                 "job.incremental-check.succeeded.json",
+    # 除环境生成任务外，各类任务都必须按 environment_id 引用环境。缺字段时不能
+    # `continue`——那会让「干脆没有环境引用」这个反例静默通过。
+    for name in ("job.full-check.succeeded.json", "job.incremental-check.succeeded.json",
+                 "job.failed.analysis5001.json",
                  "job.repair.succeeded.json", "job.repair.no_fix.json",
                  "job.failed.repair6001.json"):
-        env_id = ((sample(name).get("input") or {}).get("environment_id"))
-        if env_id is None:
-            continue
+        env_id = (sample(name).get("input") or {}).get("environment_id")
+        rep.check(f"{name} 按 environment_id 引用环境", bool(env_id),
+                  "非环境生成类的任务必须引用环境；缺字段时下游拿不到构建命令与项目根")
         rep.check(f"{name} 引用的环境 {env_id} 有定义", env_id in envs,
-                  "引用了没有环境记录的 environment_id：下游取不到构建命令与项目根")
+                  "引用了没有环境记录的 environment_id")
+
+    # 创建请求样例与对应成功响应的 input 必须逐字段一致：调用方照响应样例拼请求是很自然的
+    # 做法，两者一旦分叉，照抄的那一方就会拿到与样例不同的任务——比如丢了能力需求，
+    # 于是生成的环境不带 `ptrace`，后续任何检测引用它都会被拒。
+    for req_name, job_name in (
+        ("create-dockerfile-job.request.json", "job.succeeded.json"),
+        ("create-full-check-job.request.json", "job.full-check.succeeded.json"),
+        ("create-incremental-check-job.request.json", "job.incremental-check.succeeded.json"),
+        ("create-repair-job.request.json", "job.repair.succeeded.json"),
+    ):
+        rep.check(f"{job_name} 的 input 与 {req_name} 逐字段一致",
+                  sample(req_name)["input"] == sample(job_name)["input"],
+                  "响应样例的 input 与创建请求样例不同：两份样例描述的不是同一个任务")
 
     draft = sample("job.succeeded.json")["output"]
     rep.check("DRAFT 输出回报 environment_id 且有对应环境记录",
@@ -1084,11 +1105,12 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
          "env-draft-mdfixer-001"),
     )
     for label, report_obj, env_id in report_cases:
-        image = image_records[envs[env_id]["image"]]
-        rep.check(f"{label}所依据的提交等于该环境产出时的提交",
-                  report_obj["repository"]["commit"] == image["source_commit"],
-                  f"报告 {report_obj['repository']['commit']}\n"
-                  f"环境镜像产物 {image['source_commit']}")
+        image = image_records.get((envs.get(env_id) or {}).get("image")) or {}
+        commit_ok = (bool(image.get("source_commit"))
+                     and report_obj["repository"]["commit"] == image["source_commit"])
+        rep.check(f"{label}所依据的提交等于该环境产出时的提交", commit_ok,
+                  f"报告 {report_obj['repository']['commit']}；"
+                  f"环境 {env_id} 的镜像产物提交 {image.get('source_commit')!r}")
 
     checked = {
         "DRAFT 输入提交": sample("job.succeeded.json")["input"]["repository"]["commit"],
