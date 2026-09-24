@@ -21,7 +21,7 @@
 2. **环境定义的查询方式**：新增 `GET /v1/environments/{environment_id}`，返回 `contracts/environment.schema.json` 定义的对象——`image` 按 `artifact_id` 引用 `IMAGE_REF` 产物、`project_root` 是**容器内**位置、`build_command`、`runtime_capabilities`。
 3. **DRAFT 输出对齐 2.0**：`configuration_id` → `environment_id`；`image_ref`（裸 tag）→ `image_artifact_id`（`IMAGE_REF` 产物编号）。
 4. **DRAFT 输入保持不变**：它是环境的**产生方**而不是引用方——环境此时还不存在。输入表达「生成要求」（`repository` + `build{command, verify_command, verify_expect, project_subdir}` + `limits`），其中 `build.command` 原样成为 `Environment.build_command`，`build.project_subdir`（仓库内路径）决定 `Environment.project_root`（容器内路径）。
-5. **REPAIR 输入对齐 2.0**：`environment{...}` 整段 → `environment_id`；新增 `verification{verify_command, recheck_command?}`；删除 `project_subdir`，报告与 `makefile_path` 的路径基准改取 `environment.project_root`。
+5. **REPAIR 输入对齐 2.0**：`environment{...}` 整段 → `environment_id`；新增 `verification{verify_command, recheck_command}`（`recheck_command` 必填，见下方第二轮的加固说明）；删除 `project_subdir`，报告与 `makefile_path` 的路径基准改取 `environment.project_root`。
 6. **报告的引用方式**：`report.artifact_id` 必填，是唯一的取回依据（`GET /v1/artifacts/{artifact_id}`）；`report.artifact_uri` 保留为**可选对照字段**，填了必须与产物记录里的 `uri` 一致。
 7. **产物归属环境**：环境生成服务自己的产物（`DOCKERFILE` / `BUILD_LOG` / `VERIFY_LOG` / `IMAGE_REF`）`environment_id` 一律为 `null`——产出时环境尚不存在；检测与修复的产物必须记录所属环境。
 8. **版本**：四类任务统一 `schema_version=2.0`；旧结构只作为历史保留在 `contracts/task-legacy-v1.schema.json` 与本文档，不再有任何样例引用。

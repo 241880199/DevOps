@@ -230,6 +230,16 @@ def cross_checks(job_type: str, payload: dict) -> list[str]:
     errs = []
 
     repository = payload.get("repository", {})
+    if job_type == "DRAFT":
+        # 版本解析是受理阶段就能判定的输入问题：解析不出来就该拒绝请求，
+        # 而不是先把任务建起来、再在产出前失败（那会让错误码去挤占执行期的档位）。
+        if resolve_commit(repository.get("commit"), repository.get("url", "")) is None:
+            errs.append(
+                f"repository/commit: {repository.get('commit')!r} 无法解析为仓库中"
+                f"真实存在的提交——环境生成要按这个版本产出并回报完整 SHA"
+                f"（mock 只解析本仓库的提交，外部仓库须给完整 SHA）"
+            )
+
     if "canonical_url" in repository:
         try:
             parsed = urlsplit(repository.get("url", ""))
@@ -331,6 +341,14 @@ def report_reference_problems(payload: dict) -> list[str]:
     doc, body_problems = report_body(record)
     errs.extend(f"report/artifact_id: {p}" for p in body_problems)
     if doc is not None:
+        # 环境要看**报告正文**声明的那个：产物记录的元数据可能被错标或调换，
+        # 只比元数据的话，一份来自别环境的报告会一路通过并驱动一次错误的修复。
+        if doc.get("environment_id") != payload.get("environment_id"):
+            errs.append(
+                f"report/artifact_id: 报告正文声明的环境 {doc.get('environment_id')!r} "
+                f"与本次环境 {payload.get('environment_id')!r} 不一致——"
+                f"不同环境下的依赖结论不可比"
+            )
         declared_commit = doc["repository"]["commit"]
         if record.get("source_commit") != declared_commit:
             errs.append(
@@ -360,7 +378,11 @@ def report_body(record: dict):
     except (ValueError, UnicodeDecodeError) as exc:
         return None, [f"报告内容不是合法 JSON：{exc}"]
     problems = schema_errors("error-report", doc)
-    return doc, [f"报告内容不符合 error-report 契约：{p}" for p in problems]
+    if problems:
+        # 结构不合契约时**不返回文档**：否则调用方会直接去取 repository / findings，
+        # 遇到 `{}` 这类输入就抛 KeyError，一个输入错误变成 500。
+        return None, [f"报告内容不符合 error-report 契约：{p}" for p in problems]
+    return doc, []
 
 
 # ------------------------------------------------------------------ 产物登记
@@ -446,12 +468,14 @@ def output_for_draft(job: dict) -> dict:
     commit = resolve_commit(payload["repository"].get("commit"),
                             payload["repository"].get("url", ""))
     if commit is None:
+        # 兜底：这个分支在受理阶段（cross_checks）就该被拦下。留在这里是为了万一
+        # 走到这一步也不产出带假提交的记录；载体沿用受理阶段那一档的临时选择，
+        # 待共享错误码表补上「请求不合法」后一并替换。
         raise JobAbort(
             "EXEC_4002", "EXEC",
             "无法解析仓库版本：输入给的 commit 不是仓库中真实存在的提交。",
             f"input.repository.commit={payload['repository'].get('commit')!r}；"
-            f"mock 只能解析本仓库（{SELF_REPO_URL}）的提交，"
-            f"外部仓库只接受完整 SHA。",
+            f"mock 只能解析本仓库（{SELF_REPO_URL}）的提交。",
         )
     build = payload["build"]
     subdir = (build.get("project_subdir") or ".").strip("/")

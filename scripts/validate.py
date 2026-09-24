@@ -1008,9 +1008,11 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
 
     for env_id, env in sorted(envs.items()):
         root = env.get("project_root", "")
+        inside = root == "/workspace" or root.startswith("/workspace/")
         rep.check(f"{env_id} 的项目根落在工作区内（{root}）",
-                  root.startswith("/workspace") and ".." not in root.split("/"),
-                  "容器内路径必须落在约定的工作区之内")
+                  inside and ".." not in root.split("/"),
+                  "容器内路径必须落在约定的工作区之内（前缀 `startswith` 会把 "
+                  "`/workspace_evil` 也算通过，这里按路径边界判）")
 
     repair = sample("create-repair-job.request.json")["input"]
     rep.check("REPAIR 输入不内嵌环境定义、也不带 project_subdir",
@@ -1028,6 +1030,10 @@ def check_14_environment_handoff(schemas: dict, rep: Report) -> None:
     rep.check("报告产物归属的环境就是修复所用的环境",
               report_record.get("environment_id") == repair.get("environment_id"),
               "环境不一致时复构建与复检的结论不可比")
+    rep.check("报告正文声明的环境与请求一致",
+              load_json(ROOT / "fixtures" / "mdfixer" / "error-report.json")
+              .get("environment_id") == repair.get("environment_id"),
+              "要比对的是报告正文声明的环境——元数据可能被错标或调换")
 
     # 存储域是接口的一部分：按服务命名，人工基线样例用 oracle 域。域不统一时
     # 「按域映射本地目录」这类约定立刻失效，所以把取值集合钉死在契约里。

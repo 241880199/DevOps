@@ -39,7 +39,7 @@
 | **交接物摘要核验** | `scripts/mock_server.py` 启动时的静态记录加载 | 产物记录与实物的摘要/大小不符即拒绝启动 |
 | **报告版本检查** | `scripts/mock_server.py` 的 `cross_checks` 与执行阶段 | 声明了 `report.commit` 时在受理阶段 `400`；未声明时在执行阶段取回报告后以 `FAILED / REPAIR_6001` 收场 |
 | **报告可用性检查** | `scripts/mock_server.py` 的 `report_reference_problems` | 编号取不到、产物不是 `ERROR_REPORT`、报告属于别的环境、报告不含 `MISSING` 发现——四种情形均在受理阶段被拒绝 |
-| **仓库版本解析** | `scripts/mock_server.py` 的 `resolve_commit` | 缩写与缺省被解析为完整 40 位 SHA；不存在的提交使任务失败，产物记录里不会出现假提交 |
+| **仓库版本解析** | `scripts/mock_server.py` 的 `resolve_commit` + `cross_checks` | 缩写与缺省被解析为完整 40 位 SHA；解析不出真实提交时在受理阶段拒绝（`400`），产物记录里不会出现假提交 |
 | **产物记录自检** | `scripts/mock_server.py` 的 `register_artifact` | 登记前按 `artifact.schema.json` 自检，违约即让任务失败 |
 | **能力需求交接** | `scripts/mock_server.py`、`contracts/samples/create-dockerfile-job.request.json` | 环境生成请求声明所需能力（`ptrace`），环境记录据此固定；检测任务引用未声明 `ptrace` 的环境被拒绝 |
 | **路径越界防护** | 两个输入 schema 的 `pattern` + `scripts/mock_server.py` | `project_subdir` 与 `makefile_path` 只接受仓库内相对路径，绝对路径与 `..` 在受理阶段被拒；环境的 `project_root` 必须落在工作区内（请求侧与产出侧各判一次） |
