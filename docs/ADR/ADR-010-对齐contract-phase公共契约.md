@@ -44,4 +44,4 @@ ADR-008、ADR-009 所依据的早期字段存在破坏性差异：`environment_i
 - `contracts/job-output-incremental-check.schema.json`
 - `contracts/dependency-graph.schema.json`
 - `contracts/error-report.schema.json`
-- `docs/检测侧接口提案.md`
+- `docs/检测侧接口提案.md`（已于 2026-09-24 并入 `docs/interfaces/全量依赖检测.md` 与 `增量依赖检测.md`，该文件已删除）
