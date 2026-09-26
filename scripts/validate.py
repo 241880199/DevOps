@@ -18,6 +18,8 @@
   12  检测服务输出、可读取产物、真实提交及基线祖先关系一致
   13  检测服务契约与 contract-phase 公共结构保持一致
   14  环境交接：环境生成服务产出环境，下游任务只按 environment_id 引用
+  15  文档中的完整 JSON 示例符合对应契约
+  16  七份接口文档的端点、任务类型、必要章节与确认状态保持完整
 
 用法（在仓库根目录执行）：
     python scripts/validate.py
@@ -1212,6 +1214,66 @@ def check_15_doc_examples(schemas: dict, rep: Report) -> None:
               "一个都没找到，说明提取逻辑失效了")
 
 
+def check_16_interface_docs(schemas: dict, rep: Report) -> None:
+    """接口文档的清单、元数据与确认状态必须可追溯。
+
+    Schema 能约束请求和响应，却不能发现接口文档被误删、端点写错，或文档顶部写着
+    「已冻结」而确认表里仍留着「待确认」。这些信息直接影响配对组能否按同一份契约
+    联调，因此把七份接口文档也纳入提交前校验。
+    """
+    del schemas  # 本检查只验证文档拓扑与元数据，不读取 JSON Schema。
+    print("\n检查 16：接口文档清单与确认状态完整")
+
+    expected = {
+        "生成构建环境.md": ("POST /v1/dockerfile-jobs", "DRAFT"),
+        "全量依赖检测.md": ("POST /v1/full-check-jobs", "FULL_CHECK"),
+        "增量依赖检测.md": ("POST /v1/incremental-check-jobs", "INCREMENTAL_CHECK"),
+        "修复缺失依赖.md": ("POST /v1/repair-jobs", "REPAIR"),
+        "查询任务.md": ("GET /v1/jobs/{job_id}", None),
+        "下载产物.md": ("GET /v1/artifacts/{artifact_id}", None),
+        "查询环境定义.md": ("GET /v1/environments/{environment_id}", None),
+    }
+    interface_dir = DOCS / "interfaces"
+    actual = {path.name for path in interface_dir.glob("*.md")}
+    rep.check("七份接口文档齐全且没有未登记文档", actual == set(expected),
+              f"缺少={sorted(set(expected) - actual)}；未登记={sorted(actual - set(expected))}")
+
+    for filename, (endpoint, job_type) in expected.items():
+        path = interface_dir / filename
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        rep.check(f"{filename} 声明端点 {endpoint}",
+                  f"`{endpoint}`" in text,
+                  "端点缺失或与接口清单不一致")
+        if job_type is not None:
+            rep.check(f"{filename} 声明 job_type={job_type}",
+                      f"`{job_type}`" in text,
+                      "任务类型缺失或与接口清单不一致")
+
+        for section in ("生产侧与消费侧", "可执行的最小检查", "双方确认状态"):
+            rep.check(f"{filename} 包含“{section}”章节", section in text,
+                      f"缺少章节：{section}")
+
+        state = re.search(r"^- \*\*状态\*\*：(.+)$", text, re.MULTILINE)
+        rep.check(f"{filename} 声明总体状态", state is not None,
+                  "缺少顶部的 `- **状态**：...` 元数据")
+        if state is None:
+            continue
+
+        confirmation_heading = re.search(r"^## .+双方确认状态\s*$", text, re.MULTILINE)
+        confirmation = text[confirmation_heading.start():] if confirmation_heading else ""
+        pending_row = re.search(r"^\|[^\n]+\|\s*待确认\s*\|\s*$",
+                                confirmation, re.MULTILINE)
+        frozen = "双方已确认并冻结" in state.group(1)
+        if frozen:
+            rep.check(f"{filename} 已冻结状态与确认表一致", pending_row is None,
+                      "顶部标为已冻结，但确认表仍有待确认方")
+        else:
+            rep.check(f"{filename} 未冻结状态保留待确认方", pending_row is not None,
+                      "顶部尚未冻结，但确认表没有明确待确认方")
+
+
 # -------------------------------------------------------------------- main
 
 def main() -> int:
@@ -1239,6 +1301,7 @@ def main() -> int:
         check_13_contract_phase_alignment,
         check_14_environment_handoff,
         check_15_doc_examples,
+        check_16_interface_docs,
     )
     for check in checks:
         try:
