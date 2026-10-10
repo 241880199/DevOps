@@ -436,7 +436,7 @@ python scripts/mock_server.py   # 端到端实测：四类任务 + 环境查询 
   并检查顶部总体状态与双方确认表是否矛盾；同时新增个人工作记录。
 - **人工处理**：采纳该范围。确认这项工作只检查现有状态，不替 B03 做确认；全量与增量检测接口继续保留
   “待环境生成与依赖修复侧确认”，不擅自冻结。
-- **关联文件**：`scripts/validate.py`、`docs/records/A03-Ezio-241880444.md`。
+- **关联文件**：`scripts/validate.py`、`docs/records/A03-BuildChecker.md`（原名 A03-Ezio-241880444.md）。
 - **验证**：在完整 Git 历史的检出中运行 `python scripts/validate.py`，本次结果为 317 / 317 项通过，
   退出码 0；其中新增检查 16 的 47 项全部通过。
 # E3 / E4 A03 范围分析与实现（2026-10-10）
