@@ -1,0 +1,61 @@
+{
+  "provenance": "MANUAL",
+  "basis": "E3 A-group C0/C1/C2 course specification",
+  "scope": "main.o project dependencies under the recorded build command",
+  "versions": {
+    "C0": {
+      "findings": [],
+      "clean_output": "10",
+      "command_change": false,
+      "expected_declared_dependencies": [
+        "main.c",
+        "config.h"
+      ],
+      "expected_actual_dependencies": [
+        "main.c",
+        "config.h"
+      ]
+    },
+    "C1": {
+      "findings": [
+        {
+          "type": "MISSING",
+          "target": "main.o",
+          "dependency": "feature.h"
+        }
+      ],
+      "clean_output": "12",
+      "command_change": false,
+      "expected_declared_dependencies": [
+        "main.c",
+        "config.h"
+      ],
+      "expected_actual_dependencies": [
+        "main.c",
+        "config.h",
+        "feature.h"
+      ]
+    },
+    "C2": {
+      "findings": [
+        {
+          "type": "MISSING",
+          "target": "main.o",
+          "dependency": "feature.h"
+        }
+      ],
+      "incremental_output": "12",
+      "clean_output": "19",
+      "command_change": true,
+      "expected_declared_dependencies": [
+        "main.c",
+        "config.h"
+      ],
+      "expected_actual_dependencies": [
+        "main.c",
+        "config.h",
+        "feature.h"
+      ]
+    }
+  }
+}

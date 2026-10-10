@@ -1,0 +1,33 @@
+{
+  "provenance": "MANUAL",
+  "basis": "E3 A-group course fixture, manually checked against main.c and Makefile",
+  "scope": "main.o project headers; system headers excluded",
+  "findings": [
+    {
+      "type": "MISSING",
+      "target": "main.o",
+      "dependency": "config.h",
+      "reason": "main.c includes config.h, but main.o does not declare it"
+    },
+    {
+      "type": "REDUNDANT",
+      "target": "main.o",
+      "dependency": "unused.h",
+      "reason": "main.o declares unused.h, but no project source includes it"
+    }
+  ],
+  "behavior": {
+    "initial": "1",
+    "header_incremental": "1",
+    "header_clean": "2",
+    "redundant_change_recompiles": true
+  },
+  "expected_actual_dependencies": [
+    "main.c",
+    "config.h"
+  ],
+  "expected_declared_dependencies": [
+    "main.c",
+    "unused.h"
+  ]
+}

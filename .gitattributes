@@ -7,3 +7,16 @@ fixtures/mdfixer/** text eol=lf
 contracts/samples/artifact.actual-graph-*.json text eol=lf
 contracts/samples/artifact.declared-graph-*.json text eol=lf
 contracts/samples/artifact.error-report-*.json text eol=lf
+
+# Linux course fixtures and scripts must remain executable as text on Windows checkouts.
+fixtures/md-rd/** text eol=lf
+fixtures/commits/** text eol=lf
+services/** text eol=lf
+scripts/*.py text eol=lf
+Makefile text eol=lf
+compose.yaml text eol=lf
+requirements-dev.* text eol=lf
+evidence/**/*.log text eol=lf
+evidence/**/*.json text eol=lf
+.env.example text eol=lf
+.dockerignore text eol=lf

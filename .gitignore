@@ -16,3 +16,12 @@ fixtures/draft/hello
 .idea/
 .DS_Store
 Thumbs.db
+
+# E3/E4 private configuration and disposable run evidence
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+work/
+.pytest_cache/

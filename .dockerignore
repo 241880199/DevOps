@@ -1,0 +1,11 @@
+.env
+.env.*
+.git
+work
+setup
+*.pem
+*.key
+__pycache__
+.pytest_cache
+evidence
+*.o
