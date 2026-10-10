@@ -1,0 +1,2 @@
+cc -O0 -c main.c -o main.o
+cc -O0 main.o -o app

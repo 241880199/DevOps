@@ -1,0 +1,14 @@
+[
+  {
+    "phase": "synthetic_key_detected",
+    "exit_code": 2,
+    "passed": true,
+    "scan_dir": "20261010-114145-527778471"
+  },
+  {
+    "phase": "clean_after_removal",
+    "exit_code": 0,
+    "passed": true,
+    "scan_dir": "20261010-114146-039949722"
+  }
+]

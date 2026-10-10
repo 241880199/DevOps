@@ -1,0 +1,6 @@
+[main (root-commit) a486bb2] E3 C0 course baseline
+ 4 files changed, 19 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 Makefile
+ create mode 100644 config.h
+ create mode 100644 main.c

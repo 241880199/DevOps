@@ -1,0 +1,92 @@
+{
+  "C0": {
+    "commit": "a486bb290f9d34cbc6c2dc76a35365bfc00d0525",
+    "parents": [],
+    "oracle": {
+      "findings": [],
+      "clean_output": "10",
+      "command_change": false,
+      "expected_declared_dependencies": [
+        "main.c",
+        "config.h"
+      ],
+      "expected_actual_dependencies": [
+        "main.c",
+        "config.h"
+      ]
+    },
+    "source_sha256": {
+      "main.c": "f599d20c944397517e50aab3f6584cc4ef12ec3449b2a559aa7a88db9b042e99",
+      "config.h": "7c6cf8b86288fda770dffa103a6f8a050f3d92e9db410bf4b1a18728f0870e73",
+      "Makefile": "ee5677b2829f1825b7a110842a74889e77a6611d6563821f1f68f916b632be05"
+    },
+    "compile_command": "cc -O0 -c main.c -o main.o"
+  },
+  "C1": {
+    "commit": "d7d6f69795712caa45857a0b3afac5a3302695e1",
+    "parents": [
+      "a486bb290f9d34cbc6c2dc76a35365bfc00d0525"
+    ],
+    "oracle": {
+      "findings": [
+        {
+          "type": "MISSING",
+          "target": "main.o",
+          "dependency": "feature.h"
+        }
+      ],
+      "clean_output": "12",
+      "command_change": false,
+      "expected_declared_dependencies": [
+        "main.c",
+        "config.h"
+      ],
+      "expected_actual_dependencies": [
+        "main.c",
+        "config.h",
+        "feature.h"
+      ]
+    },
+    "source_sha256": {
+      "feature.h": "d152792215e983e4cfefcfbc34dabe4208fbd0ba389c6118993d9a2abfe89630",
+      "main.c": "a37ce6c224a00206596cb85d70da9f4e5d03e3b7af91fae2e84a0c0c8797a476",
+      "config.h": "7c6cf8b86288fda770dffa103a6f8a050f3d92e9db410bf4b1a18728f0870e73",
+      "Makefile": "ee5677b2829f1825b7a110842a74889e77a6611d6563821f1f68f916b632be05"
+    },
+    "compile_command": "cc -O0 -c main.c -o main.o"
+  },
+  "C2": {
+    "commit": "7d8c8bb180b017ca131cfeb377839aaaab614411",
+    "parents": [
+      "d7d6f69795712caa45857a0b3afac5a3302695e1"
+    ],
+    "oracle": {
+      "findings": [
+        {
+          "type": "MISSING",
+          "target": "main.o",
+          "dependency": "feature.h"
+        }
+      ],
+      "incremental_output": "12",
+      "clean_output": "19",
+      "command_change": true,
+      "expected_declared_dependencies": [
+        "main.c",
+        "config.h"
+      ],
+      "expected_actual_dependencies": [
+        "main.c",
+        "config.h",
+        "feature.h"
+      ]
+    },
+    "source_sha256": {
+      "feature.h": "d152792215e983e4cfefcfbc34dabe4208fbd0ba389c6118993d9a2abfe89630",
+      "main.c": "a37ce6c224a00206596cb85d70da9f4e5d03e3b7af91fae2e84a0c0c8797a476",
+      "config.h": "7c6cf8b86288fda770dffa103a6f8a050f3d92e9db410bf4b1a18728f0870e73",
+      "Makefile": "38c9ad12639e9333c6a5fa43ef07dc89cbab521bffd790915d37ff5d70fd88af"
+    },
+    "compile_command": "cc -O0 -DMODE=7 -c main.c -o main.o"
+  }
+}

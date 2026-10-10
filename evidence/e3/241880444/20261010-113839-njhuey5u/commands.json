@@ -1,0 +1,680 @@
+[
+  {
+    "argv": [
+      "make",
+      "clean"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:39.941354+00:00",
+    "exit_code": 0,
+    "stdout": "logs/001-md-initial-clean.stdout.log",
+    "stderr": "logs/001-md-initial-clean.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:39.944129+00:00",
+    "exit_code": 0,
+    "stdout": "logs/002-md-initial-make.stdout.log",
+    "stderr": "logs/002-md-initial-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:40.225534+00:00",
+    "exit_code": 0,
+    "stdout": "logs/003-md-initial-app.stdout.log",
+    "stderr": "logs/003-md-initial-app.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "-pn"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:40.226489+00:00",
+    "exit_code": 0,
+    "stdout": "logs/004-md-make-database.stdout.log",
+    "stderr": "logs/004-md-make-database.stderr.log"
+  },
+  {
+    "argv": [
+      "strace",
+      "-ff",
+      "-o",
+      "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/trace",
+      "-e",
+      "trace=%file,%process",
+      "make",
+      "-B"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:40.229774+00:00",
+    "exit_code": 0,
+    "stdout": "logs/005-md-raw-strace.stdout.log",
+    "stderr": "logs/005-md-raw-strace.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:41.839222+00:00",
+    "exit_code": 0,
+    "stdout": "logs/006-md-header-incremental-make.stdout.log",
+    "stderr": "logs/006-md-header-incremental-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:41.841255+00:00",
+    "exit_code": 0,
+    "stdout": "logs/007-md-header-incremental-app.stdout.log",
+    "stderr": "logs/007-md-header-incremental-app.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "clean"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:41.842537+00:00",
+    "exit_code": 0,
+    "stdout": "logs/008-md-header-clean-clean.stdout.log",
+    "stderr": "logs/008-md-header-clean-clean.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:41.845468+00:00",
+    "exit_code": 0,
+    "stdout": "logs/009-md-header-clean-make.stdout.log",
+    "stderr": "logs/009-md-header-clean-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:42.039681+00:00",
+    "exit_code": 0,
+    "stdout": "logs/010-md-header-clean-app.stdout.log",
+    "stderr": "logs/010-md-header-clean-app.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:43.141186+00:00",
+    "exit_code": 0,
+    "stdout": "logs/011-rd-change-make.stdout.log",
+    "stderr": "logs/011-rd-change-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd",
+    "started_at": "2026-10-10T03:38:43.341440+00:00",
+    "exit_code": 0,
+    "stdout": "logs/012-rd-change-app.stdout.log",
+    "stderr": "logs/012-rd-change-app.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "init",
+      "-b",
+      "main"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.343086+00:00",
+    "exit_code": 0,
+    "stdout": "logs/013-fixture-init.stdout.log",
+    "stderr": "logs/013-fixture-init.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "config",
+      "--local",
+      "user.name",
+      "241880444"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.349242+00:00",
+    "exit_code": 0,
+    "stdout": "logs/014-git.stdout.log",
+    "stderr": "logs/014-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "config",
+      "--local",
+      "user.email",
+      "241880444@localhost"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.351336+00:00",
+    "exit_code": 0,
+    "stdout": "logs/015-git.stdout.log",
+    "stderr": "logs/015-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "config",
+      "--local",
+      "core.autocrlf",
+      "false"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.353269+00:00",
+    "exit_code": 0,
+    "stdout": "logs/016-git.stdout.log",
+    "stderr": "logs/016-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "add",
+      "."
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.355756+00:00",
+    "exit_code": 0,
+    "stdout": "logs/017-git.stdout.log",
+    "stderr": "logs/017-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "commit",
+      "-m",
+      "E3 C0 course baseline"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.360206+00:00",
+    "exit_code": 0,
+    "stdout": "logs/018-git.stdout.log",
+    "stderr": "logs/018-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "tag",
+      "C0"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.367193+00:00",
+    "exit_code": 0,
+    "stdout": "logs/019-git.stdout.log",
+    "stderr": "logs/019-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.369410+00:00",
+    "exit_code": 0,
+    "stdout": "logs/020-git.stdout.log",
+    "stderr": "logs/020-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "rev-list",
+      "--parents",
+      "-n",
+      "1",
+      "HEAD"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.371110+00:00",
+    "exit_code": 0,
+    "stdout": "logs/021-git.stdout.log",
+    "stderr": "logs/021-git.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "-n",
+      "-B",
+      "main.o"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.373211+00:00",
+    "exit_code": 0,
+    "stdout": "logs/022-C0-command.stdout.log",
+    "stderr": "logs/022-C0-command.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "clean"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.374921+00:00",
+    "exit_code": 0,
+    "stdout": "logs/023-C0-clean.stdout.log",
+    "stderr": "logs/023-C0-clean.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.377611+00:00",
+    "exit_code": 0,
+    "stdout": "logs/024-C0-make.stdout.log",
+    "stderr": "logs/024-C0-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:43.600779+00:00",
+    "exit_code": 0,
+    "stdout": "logs/025-C0-app.stdout.log",
+    "stderr": "logs/025-C0-app.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "add",
+      "."
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.702719+00:00",
+    "exit_code": 0,
+    "stdout": "logs/026-git.stdout.log",
+    "stderr": "logs/026-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "commit",
+      "-m",
+      "E3 C1 course baseline"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.706186+00:00",
+    "exit_code": 0,
+    "stdout": "logs/027-git.stdout.log",
+    "stderr": "logs/027-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "tag",
+      "C1"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.711785+00:00",
+    "exit_code": 0,
+    "stdout": "logs/028-git.stdout.log",
+    "stderr": "logs/028-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.713960+00:00",
+    "exit_code": 0,
+    "stdout": "logs/029-git.stdout.log",
+    "stderr": "logs/029-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "rev-list",
+      "--parents",
+      "-n",
+      "1",
+      "HEAD"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.715900+00:00",
+    "exit_code": 0,
+    "stdout": "logs/030-git.stdout.log",
+    "stderr": "logs/030-git.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "-n",
+      "-B",
+      "main.o"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.718153+00:00",
+    "exit_code": 0,
+    "stdout": "logs/031-C1-command.stdout.log",
+    "stderr": "logs/031-C1-command.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "diff",
+      "--name-only",
+      "C0",
+      "C1"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.719803+00:00",
+    "exit_code": 0,
+    "stdout": "logs/032-git.stdout.log",
+    "stderr": "logs/032-git.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "clean"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.721873+00:00",
+    "exit_code": 0,
+    "stdout": "logs/033-C1-clean.stdout.log",
+    "stderr": "logs/033-C1-clean.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.724668+00:00",
+    "exit_code": 0,
+    "stdout": "logs/034-C1-make.stdout.log",
+    "stderr": "logs/034-C1-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:44.914137+00:00",
+    "exit_code": 0,
+    "stdout": "logs/035-C1-app.stdout.log",
+    "stderr": "logs/035-C1-app.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:46.015645+00:00",
+    "exit_code": 0,
+    "stdout": "logs/036-C1-header-incremental-make.stdout.log",
+    "stderr": "logs/036-C1-header-incremental-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:46.018083+00:00",
+    "exit_code": 0,
+    "stdout": "logs/037-C1-header-incremental-app.stdout.log",
+    "stderr": "logs/037-C1-header-incremental-app.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "clean"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:46.019341+00:00",
+    "exit_code": 0,
+    "stdout": "logs/038-C1-header-clean-clean.stdout.log",
+    "stderr": "logs/038-C1-header-clean-clean.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:46.022478+00:00",
+    "exit_code": 0,
+    "stdout": "logs/039-C1-header-clean-make.stdout.log",
+    "stderr": "logs/039-C1-header-clean-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:46.215081+00:00",
+    "exit_code": 0,
+    "stdout": "logs/040-C1-header-clean-app.stdout.log",
+    "stderr": "logs/040-C1-header-clean-app.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "clean"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:47.316549+00:00",
+    "exit_code": 0,
+    "stdout": "logs/041-C1-restored-clean.stdout.log",
+    "stderr": "logs/041-C1-restored-clean.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:47.319906+00:00",
+    "exit_code": 0,
+    "stdout": "logs/042-C1-restored-make.stdout.log",
+    "stderr": "logs/042-C1-restored-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:47.507158+00:00",
+    "exit_code": 0,
+    "stdout": "logs/043-C1-restored-app.stdout.log",
+    "stderr": "logs/043-C1-restored-app.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "add",
+      "."
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.609455+00:00",
+    "exit_code": 0,
+    "stdout": "logs/044-git.stdout.log",
+    "stderr": "logs/044-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "commit",
+      "-m",
+      "E3 C2 course baseline"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.612798+00:00",
+    "exit_code": 0,
+    "stdout": "logs/045-git.stdout.log",
+    "stderr": "logs/045-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "tag",
+      "C2"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.618909+00:00",
+    "exit_code": 0,
+    "stdout": "logs/046-git.stdout.log",
+    "stderr": "logs/046-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.621140+00:00",
+    "exit_code": 0,
+    "stdout": "logs/047-git.stdout.log",
+    "stderr": "logs/047-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "rev-list",
+      "--parents",
+      "-n",
+      "1",
+      "HEAD"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.622993+00:00",
+    "exit_code": 0,
+    "stdout": "logs/048-git.stdout.log",
+    "stderr": "logs/048-git.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "-n",
+      "-B",
+      "main.o"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.625441+00:00",
+    "exit_code": 0,
+    "stdout": "logs/049-C2-command.stdout.log",
+    "stderr": "logs/049-C2-command.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "diff",
+      "--name-only",
+      "C1",
+      "C2"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.627571+00:00",
+    "exit_code": 0,
+    "stdout": "logs/050-git.stdout.log",
+    "stderr": "logs/050-git.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.629983+00:00",
+    "exit_code": 0,
+    "stdout": "logs/051-C2-incremental-make.stdout.log",
+    "stderr": "logs/051-C2-incremental-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.631898+00:00",
+    "exit_code": 0,
+    "stdout": "logs/052-C2-incremental-app.stdout.log",
+    "stderr": "logs/052-C2-incremental-app.stderr.log"
+  },
+  {
+    "argv": [
+      "make",
+      "clean"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.633108+00:00",
+    "exit_code": 0,
+    "stdout": "logs/053-C2-clean-clean.stdout.log",
+    "stderr": "logs/053-C2-clean-clean.stderr.log"
+  },
+  {
+    "argv": [
+      "make"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.635749+00:00",
+    "exit_code": 0,
+    "stdout": "logs/054-C2-clean-make.stdout.log",
+    "stderr": "logs/054-C2-clean-make.stderr.log"
+  },
+  {
+    "argv": [
+      "./app"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.824914+00:00",
+    "exit_code": 0,
+    "stdout": "logs/055-C2-clean-app.stdout.log",
+    "stderr": "logs/055-C2-clean-app.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "status",
+      "--porcelain"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.826164+00:00",
+    "exit_code": 0,
+    "stdout": "logs/056-git.stdout.log",
+    "stderr": "logs/056-git.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "bundle",
+      "create",
+      "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-history.bundle",
+      "--all"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.828904+00:00",
+    "exit_code": 0,
+    "stdout": "logs/057-history-bundle.stdout.log",
+    "stderr": "logs/057-history-bundle.stderr.log"
+  },
+  {
+    "argv": [
+      "git",
+      "bundle",
+      "verify",
+      "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-history.bundle"
+    ],
+    "cwd": "/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/fixture-repo",
+    "started_at": "2026-10-10T03:38:48.837488+00:00",
+    "exit_code": 0,
+    "stdout": "logs/058-history-bundle-verify.stdout.log",
+    "stderr": "logs/058-history-bundle-verify.stderr.log"
+  }
+]

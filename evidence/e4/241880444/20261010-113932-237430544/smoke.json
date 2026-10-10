@@ -1,0 +1,22 @@
+{
+  "fixture": "fixtures/md-rd",
+  "tools": {
+    "make": "GNU Make 4.4.1",
+    "gcc": "gcc (Debian 14.2.0-19) 14.2.0",
+    "strace": "strace -- version 6.13"
+  },
+  "make_exit_code": 0,
+  "make_output": [
+    "cc -c main.c -o main.o",
+    "cc main.o -o app"
+  ],
+  "app_output": "1",
+  "app_exit_code": 0,
+  "trace_lines": 1206,
+  "config_h_opened": [
+    "15    openat(AT_FDCWD, \"config.h\", O_RDONLY|O_NOCTTY) = 4"
+  ],
+  "unused_h_opened": [],
+  "passed": true,
+  "note": "只说明环境可用；config.h / unused.h 的结论留到 E5 由各组自己推导"
+}

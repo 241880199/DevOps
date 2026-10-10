@@ -145,7 +145,7 @@
 2. **mock 不执行真实构建**。它是契约的可执行说明，不是可用服务；`result`、`fixed`、镜像引用内容等为固定值。环境能力只按调用方声明抄录（不推断），并在**检测类任务**上强制要求 `ptrace`（见 ADR-011 的遗留缺口）。
 3. **`FULL_CHECK` / `INCREMENTAL_CHECK` 的 mock 只验证契约**。它会生成符合 Schema 且可下载的空图、空报告，但不运行真实 BuildChecker/EChecker，不能作为检测效果证明。
 4. **产物引用失效未处理**。产物被清理后 URI 仍存在，接收方会遇到「引用有效但内容缺失」，当前未定义该情形下的错误码（修复侧由 `REPAIR_6001` 部分覆盖）。
-5. **`fixtures/` 下的构建未在本机验证**。宿主为 Windows 且无 `make`/`gcc`，验证需在 Linux 容器中进行。
+5. **旧 DRAFT/REPAIR fixtures 的构建尚未在本次验证**。新增 A 组 md-rd、C0/C1/C2 和 E4 服务环境已在 WSL/Linux 容器实测，结果见 evidence/README.md；旧 B 组样例仍按各自要求留证。
 6. **mock 只能解析本仓库的提交**。`resolve_commit` 依据本仓库的 git 对象判断提交是否存在：外部仓库只接受完整 SHA 且无法验证其存在性，缩写与缺省一律失败。这是 mock 没有克隆远端能力的必然结果，不是契约限制。
 7. **`fixtures/mdfixer/` 是 E3 的初版**。E3 还需补齐 C0/C1/C2 连续提交与四种声明风格（`TARGET` / `MACRO` / `HYBRID` / `IMPLICIT`）的参考修复对照。
 8. **部分样例引用的产物编号尚无记录**。DRAFT 样例的 `iterations[].build_log_artifact_id` 与修复样例的 `verification_log_artifact_id` 指向的 `BUILD_LOG` / `VERIFY_LOG` 记录尚未提供，检查项也未覆盖——需要时再补，避免样例比契约多出未定义的东西。

@@ -1,0 +1,44 @@
+{
+  "student_id": "241880444",
+  "group": "A03",
+  "time": "2026-10-10T03:38:39.930393+00:00",
+  "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "uname": [
+    "Linux",
+    "CHINAMI-04KQLAK",
+    "6.6.87.2-microsoft-standard-WSL2",
+    "#1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025",
+    "x86_64",
+    "x86_64"
+  ],
+  "tools": {
+    "git": "git version 2.43.0",
+    "make": "GNU Make 4.3",
+    "cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "python3": "Python 3.12.3",
+    "strace": "strace -- version 6.8"
+  },
+  "source_commit": "f62284058f3c795370b09b97b0d90468f7a74167",
+  "source_status": "",
+  "fixture_sha256": {
+    "fixtures/md-rd/README.md": "bea806b2830bca84c61277740d4d1700589d64e27d337f8127b8722abe4e7a06",
+    "fixtures/md-rd/oracle.json": "d9702a17b7de50c652a8a57c3dd3f4a71a4a3b25ea4bce37424ac0d29f9278f3",
+    "fixtures/md-rd/main.c": "bfa1c2d1abeb70ba92e60c414923265296dafa0cc98bee068251b0301e6da197",
+    "fixtures/md-rd/config.h": "ac32a92f4af359517c993d6e8583ea2d9b053c2ad171b4c602bc242894bd9696",
+    "fixtures/md-rd/unused.h": "1e4315549ec63325a22265e33a27e3cff8940d3ceec9756d7d193e9e51b966c9",
+    "fixtures/md-rd/Makefile": "fd1dcd76a0bd9678351a1503941a5a875351455d4a6879e76af0af0b6c64772f",
+    "fixtures/commits/README.md": "263153c01804eed2c78067f9031c2337f23691e4e37ec33a60dfcd6535dd7d18",
+    "fixtures/commits/oracle.json": "09ac3c927fb2f4fe6fe97108d783ddeaa72e1e73c99954113286275ccd38e1e5",
+    "fixtures/commits/C2/feature.h": "d152792215e983e4cfefcfbc34dabe4208fbd0ba389c6118993d9a2abfe89630",
+    "fixtures/commits/C2/main.c": "a37ce6c224a00206596cb85d70da9f4e5d03e3b7af91fae2e84a0c0c8797a476",
+    "fixtures/commits/C2/config.h": "7c6cf8b86288fda770dffa103a6f8a050f3d92e9db410bf4b1a18728f0870e73",
+    "fixtures/commits/C2/Makefile": "38c9ad12639e9333c6a5fa43ef07dc89cbab521bffd790915d37ff5d70fd88af",
+    "fixtures/commits/C0/main.c": "f599d20c944397517e50aab3f6584cc4ef12ec3449b2a559aa7a88db9b042e99",
+    "fixtures/commits/C0/config.h": "7c6cf8b86288fda770dffa103a6f8a050f3d92e9db410bf4b1a18728f0870e73",
+    "fixtures/commits/C0/Makefile": "ee5677b2829f1825b7a110842a74889e77a6611d6563821f1f68f916b632be05",
+    "fixtures/commits/C1/feature.h": "d152792215e983e4cfefcfbc34dabe4208fbd0ba389c6118993d9a2abfe89630",
+    "fixtures/commits/C1/main.c": "a37ce6c224a00206596cb85d70da9f4e5d03e3b7af91fae2e84a0c0c8797a476",
+    "fixtures/commits/C1/config.h": "7c6cf8b86288fda770dffa103a6f8a050f3d92e9db410bf4b1a18728f0870e73",
+    "fixtures/commits/C1/Makefile": "ee5677b2829f1825b7a110842a74889e77a6611d6563821f1f68f916b632be05"
+  }
+}

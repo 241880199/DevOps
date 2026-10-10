@@ -1,0 +1,158 @@
+execve("/usr/bin/ld", ["/usr/bin/ld", "-plugin", "/usr/libexec/gcc/x86_64-linux-gn"..., "-plugin-opt=/usr/libexec/gcc/x86"..., "-plugin-opt=-fresolution=/tmp/cc"..., "-plugin-opt=-pass-through=-lgcc", "-plugin-opt=-pass-through=-lgcc_"..., "-plugin-opt=-pass-through=-lc", "-plugin-opt=-pass-through=-lgcc", "-plugin-opt=-pass-through=-lgcc_"..., "--build-id", "--eh-frame-hdr", "-m", "elf_x86_64", "--hash-style=gnu", "--as-needed", "-dynamic-linker", "/lib64/ld-linux-x86-64.so.2", "-pie", "-z", "now", "-z", "relro", "-o", "app", "/usr/lib/gcc/x86_64-linux-gnu/13"..., "/usr/lib/gcc/x86_64-linux-gnu/13"..., "/usr/lib/gcc/x86_64-linux-gnu/13"..., "-L/usr/lib/gcc/x86_64-linux-gnu/"..., "-L/usr/lib/gcc/x86_64-linux-gnu/"..., "-L/usr/lib/gcc/x86_64-linux-gnu/"..., "-L/lib/x86_64-linux-gnu", ...], 0x7fff7fcb8ef0 /* 33 vars */) = 0
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libbfd-2.42-system.so", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libctf.so.0", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libjansson.so.4", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libz.so.1", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libzstd.so.1", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libsframe.so.1", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/usr/lib/locale/locale-archive", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/share/locale/locale.alias", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/usr/lib/locale/C.UTF-8/LC_MESSAGES", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/locale/C.utf8/LC_MESSAGES", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/usr/lib/locale/C.utf8/LC_MESSAGES/SYS_LC_MESSAGES", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/usr/lib/locale/C.UTF-8/LC_CTYPE", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/locale/C.utf8/LC_CTYPE", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so", O_RDONLY|O_CLOEXEC) = 3
+getcwd("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd", 1024) = 77
+readlink("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/app", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr", 0x7ffe619b6db0, 1023)  = -1 EINVAL (Invalid argument)
+readlink("/usr/lib", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu/13", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+faccessat2(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/", F_OK, AT_EACCESS) = 0
+readlink("/usr/lib/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/x86_64-linux-gnu/Scrt1.o", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr", 0x7ffe619b6db0, 1023)  = -1 EINVAL (Invalid argument)
+readlink("/usr/lib", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu/13", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+faccessat2(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/", F_OK, AT_EACCESS) = 0
+readlink("/usr/lib/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/x86_64-linux-gnu/crti.o", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr", 0x7ffe619b6db0, 1023)  = -1 EINVAL (Invalid argument)
+readlink("/usr/lib", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu/13", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+getcwd("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd", 1024) = 77
+readlink("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/main.o", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+getcwd("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd", 1024) = 77
+readlink("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/-lgcc", 0x7ffe619b6db0, 1023) = -1 ENOENT (No such file or directory)
+getcwd("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd", 1024) = 77
+readlink("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/-lgcc_s", 0x7ffe619b6db0, 1023) = -1 ENOENT (No such file or directory)
+getcwd("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd", 1024) = 77
+readlink("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/-lc", 0x7ffe619b6db0, 1023) = -1 ENOENT (No such file or directory)
+getcwd("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd", 1024) = 77
+readlink("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/-lgcc", 0x7ffe619b6db0, 1023) = -1 ENOENT (No such file or directory)
+getcwd("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd", 1024) = 77
+readlink("/root/241880444/devops-e3-e4-20261010/work/e3/20261010-113839-njhuey5u/md-rd/-lgcc_s", 0x7ffe619b6db0, 1023) = -1 ENOENT (No such file or directory)
+readlink("/usr", 0x7ffe619b6db0, 1023)  = -1 EINVAL (Invalid argument)
+readlink("/usr/lib", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu/13", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr", 0x7ffe619b6db0, 1023)  = -1 EINVAL (Invalid argument)
+readlink("/usr/lib", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/gcc/x86_64-linux-gnu/13", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+faccessat2(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/", F_OK, AT_EACCESS) = 0
+readlink("/usr/lib/x86_64-linux-gnu", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+readlink("/usr/lib/x86_64-linux-gnu/crtn.o", 0x7ffe619b6db0, 1023) = -1 EINVAL (Invalid argument)
+newfstatat(AT_FDCWD, "app", {st_mode=S_IFREG|0755, st_size=15960, ...}, 0) = 0
+newfstatat(AT_FDCWD, "app", {st_mode=S_IFREG|0755, st_size=15960, ...}, AT_SYMLINK_NOFOLLOW) = 0
+unlink("app")                           = 0
+openat(AT_FDCWD, "app", O_RDWR|O_CREAT|O_TRUNC, 0666) = 3
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o", {st_mode=S_IFREG|0644, st_size=1656, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o", O_RDONLY) = 4
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/Scrt1.o", O_RDONLY) = 5
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o", {st_mode=S_IFREG|0644, st_size=1192, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o", O_RDONLY) = 5
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crti.o", O_RDONLY) = 6
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o", {st_mode=S_IFREG|0644, st_size=2752, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o", O_RDONLY) = 6
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o", O_RDONLY) = 7
+newfstatat(AT_FDCWD, "main.o", {st_mode=S_IFREG|0644, st_size=1504, ...}, 0) = 0
+openat(AT_FDCWD, "main.o", O_RDONLY)    = 7
+openat(AT_FDCWD, "main.o", O_RDONLY)    = 8
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", 0x7ffe619b7f50, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", {st_mode=S_IFREG|0644, st_size=3093656, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", O_RDONLY) = 8
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", {st_mode=S_IFREG|0644, st_size=132, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 9
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 10
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 10
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 9
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", 0x7ffe619b7f80, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "libgcc_s.so.1", 0x7ffe619b7f30, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "libgcc_s.so.1", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", 0x7ffe619b7f30, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libgcc_s.so.1", {st_mode=S_IFREG|0644, st_size=183024, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY) = 9
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY) = 10
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", 0x7ffe619b7ed0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", {st_mode=S_IFREG|0644, st_size=3093656, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", O_RDONLY) = 10
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libc.so", 0x7ffe619b7f50, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libc.so", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libc.a", 0x7ffe619b7fa0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libc.a", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libc.so", {st_mode=S_IFREG|0644, st_size=283, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libc.so", O_RDONLY) = 11
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libc.so", O_RDONLY) = 12
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libc.so", O_RDONLY) = 12
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libc.so", O_RDONLY) = 11
+newfstatat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", {st_mode=S_IFREG|0755, st_size=2129424, ...}, 0) = 0
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY) = 11
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY) = 12
+newfstatat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/libc_nonshared.a", {st_mode=S_IFREG|0644, st_size=5594, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/libc_nonshared.a", O_RDONLY) = 12
+newfstatat(AT_FDCWD, "/lib64/ld-linux-x86-64.so.2", {st_mode=S_IFREG|0755, st_size=236616, ...}, 0) = 0
+openat(AT_FDCWD, "/lib64/ld-linux-x86-64.so.2", O_RDONLY) = 13
+openat(AT_FDCWD, "/lib64/ld-linux-x86-64.so.2", O_RDONLY) = 14
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", 0x7ffe619b7f50, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", {st_mode=S_IFREG|0644, st_size=3093656, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", O_RDONLY) = 14
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", {st_mode=S_IFREG|0644, st_size=132, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 15
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 16
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 16
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so", O_RDONLY) = 15
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", 0x7ffe619b7f80, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "libgcc_s.so.1", 0x7ffe619b7f30, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "libgcc_s.so.1", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", 0x7ffe619b7f30, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libgcc_s.so.1", {st_mode=S_IFREG|0644, st_size=183024, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY) = 15
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY) = 16
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", 0x7ffe619b7ed0, 0) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.so", O_RDONLY) = -1 ENOENT (No such file or directory)
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", {st_mode=S_IFREG|0644, st_size=3093656, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a", O_RDONLY) = 16
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o", {st_mode=S_IFREG|0644, st_size=1168, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o", O_RDONLY) = 17
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o", O_RDONLY) = 18
+newfstatat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o", {st_mode=S_IFREG|0644, st_size=760, ...}, 0) = 0
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o", O_RDONLY) = 18
+openat(AT_FDCWD, "/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/crtn.o", O_RDONLY) = 19
+newfstatat(AT_FDCWD, "/lib64/ld-linux-x86-64.so.2", {st_mode=S_IFREG|0755, st_size=236616, ...}, 0) = 0
+openat(AT_FDCWD, "/lib64/ld-linux-x86-64.so.2", O_RDONLY) = 19
+newfstatat(AT_FDCWD, "app", {st_mode=S_IFREG|0644, st_size=15960, ...}, 0) = 0
+chmod("app", 0755)                      = 0
+exit_group(0)                           = ?
++++ exited with 0 +++

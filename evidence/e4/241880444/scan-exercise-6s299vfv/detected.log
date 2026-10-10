@@ -1,0 +1,5 @@
+python3 scripts/secret_scan.py . --history --image e4-buildchecker:241880444 | tee work/20261010-114145-527778471/secret-scan.txt; test ${PIPESTATUS[0]} -eq 0
+FOUND  leak-demo-241880444.txt:1  LLM/API Key  sk-a***
+FOUND  leak-demo-241880444.txt:1  密钥赋值  sk-a***
+密钥检查：发现 2 处疑似泄露（文件 139 个，含 Git 历史，含镜像 e4-buildchecker:241880444）
+make: *** [Makefile:54: scan] Error 1

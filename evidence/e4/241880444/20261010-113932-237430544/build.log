@@ -1,0 +1,80 @@
+--progress is a global compose flag, better use `docker compose --progress xx build ...
+ Image e4-buildchecker:241880444 Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 595B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile:
+#2 transferring dockerfile: 1.80kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for m.daocloud.io/docker.io/library/python@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 119B done
+#4 DONE 0.0s
+
+#5 [1/8] FROM m.daocloud.io/docker.io/library/python@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74
+#5 resolve m.daocloud.io/docker.io/library/python@sha256:f82c96458eedc847b233e582eb31336f4954b39cae020b6dcf5b3ed0e5cbcd74 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 11.26kB done
+#6 DONE 0.0s
+
+#7 [2/8] RUN apt-get update  && apt-get install -y --no-install-recommends gcc make libc6-dev strace git  && rm -rf /var/lib/apt/lists/*  && dpkg-query -W -f='${Package}=${Version}\n' gcc make libc6-dev strace git > /opt/toolchain.lock  && echo "python3=$(python3 -c 'import platform; print(platform.python_version())')" >> /opt/toolchain.lock  && echo "arch=$(dpkg --print-architecture)" >> /opt/toolchain.lock
+#7 CACHED
+
+#8 [3/8] COPY requirements-dev.lock /tmp/requirements-dev.lock
+#8 DONE 0.0s
+
+#9 [4/8] RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements-dev.lock  && pip freeze | sed 's/^/pip:/' >> /opt/toolchain.lock
+#9 2.394 Collecting iniconfig==2.3.0 (from -r /tmp/requirements-dev.lock (line 3))
+#9 3.445   Downloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+#9 3.602 Collecting packaging==26.3 (from -r /tmp/requirements-dev.lock (line 7))
+#9 3.725   Downloading packaging-26.3-py3-none-any.whl (129 kB)
+#9 4.328 Collecting pluggy==1.6.0 (from -r /tmp/requirements-dev.lock (line 11))
+#9 4.454   Downloading pluggy-1.6.0-py3-none-any.whl (20 kB)
+#9 4.631 Collecting pygments==2.21.0 (from -r /tmp/requirements-dev.lock (line 15))
+#9 4.766   Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
+#9 5.834      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 1.5 MB/s  0:00:01
+#9 6.038 Collecting pytest==8.4.2 (from -r /tmp/requirements-dev.lock (line 19))
+#9 6.169   Downloading pytest-8.4.2-py3-none-any.whl (365 kB)
+#9 6.566 Installing collected packages: pygments, pluggy, packaging, iniconfig, pytest
+#9 7.254 
+#9 7.255 Successfully installed iniconfig-2.3.0 packaging-26.3 pluggy-1.6.0 pygments-2.21.0 pytest-8.4.2
+#9 7.255 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#9 7.256 
+#9 7.256 [notice] A new release of pip is available: 26.1.2 -> 26.2.1
+#9 7.256 [notice] To update, run: pip install --upgrade pip
+#9 DONE 8.0s
+
+#10 [5/8] RUN useradd --create-home --uid 10001 app && install -d -o app -g app /app
+#10 DONE 0.3s
+
+#11 [6/8] WORKDIR /app
+#11 DONE 0.0s
+
+#12 [7/8] COPY --chown=app:app services/buildchecker/ /app/
+#12 DONE 0.1s
+
+#13 [8/8] COPY --chown=app:app fixtures/md-rd/ /app/fixtures/md-rd/
+#13 DONE 0.1s
+
+#14 exporting to image
+#14 exporting layers
+#14 exporting layers 0.5s done
+#14 exporting manifest sha256:fc3d211242d4b068c4b0e54055bc181e3f76f22593926b768bfab9154439153d 0.0s done
+#14 exporting config sha256:de594b90047087a1fbfc3f9b72ba1b3a2b1b1b28f86da1c1358c1afb6bc57d54 0.0s done
+#14 exporting attestation manifest sha256:d5ef4c507fd7cc72a7b0e8f92e6dc7b54f773c2c0870dc007d201c74269ee0f0 0.0s done
+#14 exporting manifest list sha256:5265e42b24f203811e7c566d3f9d74116502ce8b277866ec03ecead9f6daa95c 0.0s done
+#14 naming to docker.io/library/e4-buildchecker:241880444 done
+#14 unpacking to docker.io/library/e4-buildchecker:241880444
+#14 unpacking to docker.io/library/e4-buildchecker:241880444 0.3s done
+#14 DONE 0.9s
+
+#15 resolving provenance for metadata file
+#15 DONE 0.0s
+ Image e4-buildchecker:241880444 Built 

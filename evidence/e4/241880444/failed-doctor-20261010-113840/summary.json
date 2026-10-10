@@ -1,0 +1,6 @@
+{
+  "status": "FAILED",
+  "stage": "doctor",
+  "cause": "Task Docker CLI plugins were in temporary storage and unavailable on the next WSL startup.",
+  "resolution": "Move isolated CLI plugin configuration to /root/241880444/docker-config; complete make all run is archived separately."
+}

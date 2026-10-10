@@ -13,10 +13,13 @@ fixtures/md-rd/** text eol=lf
 fixtures/commits/** text eol=lf
 services/** text eol=lf
 scripts/*.py text eol=lf
+scripts/**/*.py text eol=lf
 Makefile text eol=lf
 compose.yaml text eol=lf
 requirements-dev.* text eol=lf
 evidence/**/*.log text eol=lf
 evidence/**/*.json text eol=lf
+evidence/** text eol=lf
+evidence/**/*.bundle -text
 .env.example text eol=lf
 .dockerignore text eol=lf

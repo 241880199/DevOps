@@ -1,0 +1,145 @@
+{
+  "status": "PASSED",
+  "error": null,
+  "assertions": [
+    {
+      "label": "MD/RD initial build",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    },
+    {
+      "label": "Linux trace records config.h open",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "label": "MD incremental retains old value",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    },
+    {
+      "label": "MD did not recompile main.o",
+      "expected": 1791603520373903169,
+      "actual": 1791603520373903169,
+      "passed": true
+    },
+    {
+      "label": "MD clean uses new value",
+      "expected": "2",
+      "actual": "2",
+      "passed": true
+    },
+    {
+      "label": "RD output unchanged",
+      "expected": "2",
+      "actual": "2",
+      "passed": true
+    },
+    {
+      "label": "RD triggers extra compilation",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "label": "C0 clean",
+      "expected": "10",
+      "actual": "10",
+      "passed": true
+    },
+    {
+      "label": "C1 changed paths",
+      "expected": [
+        "feature.h",
+        "main.c"
+      ],
+      "actual": [
+        "feature.h",
+        "main.c"
+      ],
+      "passed": true
+    },
+    {
+      "label": "C1 clean",
+      "expected": "12",
+      "actual": "12",
+      "passed": true
+    },
+    {
+      "label": "C1 MD incremental",
+      "expected": "12",
+      "actual": "12",
+      "passed": true
+    },
+    {
+      "label": "C1 MD clean",
+      "expected": "13",
+      "actual": "13",
+      "passed": true
+    },
+    {
+      "label": "C1 restored for C2",
+      "expected": "12",
+      "actual": "12",
+      "passed": true
+    },
+    {
+      "label": "C2 changed paths",
+      "expected": "Makefile",
+      "actual": "Makefile",
+      "passed": true
+    },
+    {
+      "label": "C2 records MODE=7 command",
+      "expected": true,
+      "actual": true,
+      "passed": true
+    },
+    {
+      "label": "C2 incremental keeps C1 products",
+      "expected": "12",
+      "actual": "12",
+      "passed": true
+    },
+    {
+      "label": "C2 clean applies command",
+      "expected": "19",
+      "actual": "19",
+      "passed": true
+    },
+    {
+      "label": "C1 immediate parent",
+      "expected": [
+        "a486bb290f9d34cbc6c2dc76a35365bfc00d0525"
+      ],
+      "actual": [
+        "a486bb290f9d34cbc6c2dc76a35365bfc00d0525"
+      ],
+      "passed": true
+    },
+    {
+      "label": "C2 immediate parent",
+      "expected": [
+        "d7d6f69795712caa45857a0b3afac5a3302695e1"
+      ],
+      "actual": [
+        "d7d6f69795712caa45857a0b3afac5a3302695e1"
+      ],
+      "passed": true
+    },
+    {
+      "label": "Fixture working tree clean",
+      "expected": "",
+      "actual": "",
+      "passed": true
+    }
+  ],
+  "provenance": "EXECUTION",
+  "manual_oracles": [
+    "fixtures/md-rd/oracle.json",
+    "fixtures/commits/oracle.json"
+  ]
+}

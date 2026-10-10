@@ -1,0 +1,8 @@
+The bundle contains these 5 refs:
+7d8c8bb180b017ca131cfeb377839aaaab614411 refs/heads/main
+a486bb290f9d34cbc6c2dc76a35365bfc00d0525 refs/tags/C0
+d7d6f69795712caa45857a0b3afac5a3302695e1 refs/tags/C1
+7d8c8bb180b017ca131cfeb377839aaaab614411 refs/tags/C2
+7d8c8bb180b017ca131cfeb377839aaaab614411 HEAD
+The bundle records a complete history.
+The bundle uses this hash algorithm: sha1
