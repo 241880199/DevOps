@@ -1,0 +1,13 @@
+{
+  "provenance": "EXECUTION",
+  "student_id": "241880444",
+  "source_sha": "0e138b584cb2f1943042a5c0b3e5a857bb70777f",
+  "execution_environment": "LOCAL_WSL_UBUNTU_24.04",
+  "evidence_directory": "/root/241880444/devops-e3-e4-20261010/work/20261011-232832-305459578",
+  "command": "make all",
+  "command_exit_code": 0,
+  "source_checkout": "detached HEAD at exact comparison commit; clean working tree",
+  "course_server_run": "NOT_RUN",
+  "comparison_member": "241880465",
+  "docker_build_cache_used": true
+}

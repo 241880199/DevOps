@@ -1,0 +1,9 @@
+{
+  "provenance": "EXECUTION",
+  "command": "make all",
+  "command_exit_code": "NOT_CAPTURED_SEPARATELY",
+  "stage": "doctor",
+  "reason": "Docker Desktop was not running, so WSL native Docker CLI was unavailable.",
+  "resolution": "Started Docker Desktop and reran make all successfully in 20261011-232832-305459578",
+  "tool_call_exit_code": 1
+}

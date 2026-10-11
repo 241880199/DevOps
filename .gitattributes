@@ -21,5 +21,7 @@ evidence/**/*.log text eol=lf
 evidence/**/*.json text eol=lf
 evidence/** text eol=lf
 evidence/**/*.bundle -text
+# Received member logs retain their original bytes, including Windows line endings.
+evidence/e4/241880465/20261011-230859-received/** -text
 .env.example text eol=lf
 .dockerignore text eol=lf

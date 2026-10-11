@@ -1,0 +1,22 @@
+{
+  "provenance": "USER_SUPPLIED_MEMBER_EVIDENCE",
+  "student_id": "241880465",
+  "source_sha": "0e138b584cb2f1943042a5c0b3e5a857bb70777f",
+  "received_files": [
+    "env.json",
+    "image.json",
+    "toolchain.lock",
+    "test.log",
+    "smoke.json",
+    "build.log",
+    "secret-scan.txt"
+  ],
+  "archive_directory_is_original_work_directory": false,
+  "original_work_directory": "NOT_PROVIDED",
+  "run_exit_code": "NOT_PROVIDED",
+  "checks_from_supplied_files": "doctor/build/test/smoke/scan successful",
+  "zip_sha256_reported_by_user": "fba726fa25a561bb30317a688753dfdc93f239759460044a9225801a2fbade67",
+  "zip_digest_verified": false,
+  "zip_not_supplied": true,
+  "note": "Original files copied byte-for-byte. No commands run on the other member server; supplied evidence inspected locally."
+}

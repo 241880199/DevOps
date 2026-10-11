@@ -1,0 +1,12 @@
+gcc=4:14.2.0-1
+git=1:2.47.3-0+deb13u1
+libc6-dev=2.41-12+deb13u4
+make=4.4.1-2
+strace=6.13+ds-1
+python3=3.13.14
+arch=amd64
+pip:iniconfig==2.3.0
+pip:packaging==26.3
+pip:pluggy==1.6.0
+pip:Pygments==2.21.0
+pip:pytest==8.4.2
