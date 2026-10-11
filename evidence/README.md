@@ -14,7 +14,10 @@ work/ 保存每次实验，包括失败记录，默认不提交。本目录只�
 所测实现提交：`f62284058f3c795370b09b97b0d90468f7a74167`，分支 feature/a03-e3-e4。
 执行环境为本机 WSL Ubuntu 24.04.4 LTS，Docker Desktop Linux Engine 29.5.2。
 Linux 工作目录为 `/root/241880444/devops-e3-e4-20261010`；它从已提交的本地 Windows
-仓库克隆，origin 设置为同一个 GitHub 仓库。该分支尚未发布到远端。
+仓库克隆，origin 设置为同一个 GitHub 仓库。运行时该分支尚未发布到远端；
+2026-10-11 已发布到 GitHub，并纳入 [main](https://github.com/241880199/DevOps/tree/main)；
+实现分支为 [feature/a03-e3-e4](https://github.com/241880199/DevOps/tree/feature/a03-e3-e4)。
+原始运行证据保留当时的状态，所测源码仍为上述 f622840 提交。
 
 | 项 | 结果 | 归档 |
 | --- | --- | --- |
