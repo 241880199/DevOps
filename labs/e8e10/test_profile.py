@@ -39,4 +39,7 @@ class ProfileTests(unittest.TestCase):
         (self.p/'Makefile').write_text((self.p/'Makefile').read_text().replace('-O0','-include unknown.h'))
         with self.assertRaisesRegex(ValueError,'UNSUPPORTED_FLAGS'):scan(self.p)
 
+# 将个人测试纳入课程指定的 test_profile.py 发现入口。
+from test_student_241880465 import Student241880465Tests
+
 if __name__=='__main__':unittest.main()
