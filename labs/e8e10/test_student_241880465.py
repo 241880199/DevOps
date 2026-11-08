@@ -9,6 +9,12 @@ from lab import commit, fixture, scan
 class Student241880465Tests(unittest.TestCase):
     """使用独立预期检查间接依赖的新增、稳定复用及移除。"""
 
+    def test_e9_multilevel_include_switch(self):
+        """检查已有叶子头文件之间的切换，以及只修声明时的图复用。"""
+        from student_241880465_e9 import indirect_switch
+        with tempfile.TemporaryDirectory() as temporary:
+            indirect_switch(Path(temporary))
+
     def test_indirect_include_round_trip(self):
         """只改 config.h，确认 extra.h 的新增与消除不会被旧图掩盖。"""
         with tempfile.TemporaryDirectory() as temporary:
