@@ -9,7 +9,8 @@ from lab import fixture, commit, scan, save, buildchecker
 
 def summarize(out):
     """按场景汇总原始计时，保留中位数、范围和真实加速比。"""
-    rows = list(csv.DictReader((out / 'results.csv').open(encoding='utf-8')))
+    with (out / 'results.csv').open(encoding='utf-8') as stream:
+        rows = list(csv.DictReader(stream))
     summary = []
     for case in dict.fromkeys(row['case'] for row in rows):
         group = [r for r in rows if r['case'] == case]
